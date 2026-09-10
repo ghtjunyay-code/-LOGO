@@ -1,2 +1,3 @@
-// Add Drizzle tables here when the site needs a database.
-export {};
+import { sqliteTable,text,index,integer } from 'drizzle-orm/sqlite-core';
+export const quotes=sqliteTable('embroidery_quotes',{id:text('id').primaryKey(),owner:text('owner').notNull(),status:text('status').notNull(),customerId:text('customer_id').notNull(),search:text('search').notNull(),data:text('data').notNull(),revision:integer('revision').notNull().default(1),updatedAt:text('updated_at').notNull()},t=>[index('quotes_owner_status_updated').on(t.owner,t.status,t.updatedAt)]);
+export const files=sqliteTable('embroidery_files',{id:text('id').primaryKey(),owner:text('owner').notNull(),name:text('name').notNull(),type:text('type').notNull(),createdAt:text('created_at').notNull()});

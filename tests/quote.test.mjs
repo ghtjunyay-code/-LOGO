@@ -1,0 +1,24 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {newQuote,newProduct,newSize,newSpot,copyProduct,subtotal,total,duplicates,fiveDaysBefore,deliveryText,reorder,resizeSpot,validate,parseQuote} from '../lib/quote.ts';
+function sample(){const q=newQuote();q.customer={name:'テスト担当',company:'テスト会社',email:'test@example.com',phone:'000-0000-0000'};const p=q.products[0];Object.assign(p,{name:'テストポロ',sku:'TEST-01',manageNo:'管理-001',color:'紺',material:'綿100%',sizes:[{...newSize(),size:'M',quantity:'3'},{...newSize(),size:'L',quantity:'7'}]});Object.assign(p.spots[0],{width:'60',height:'30',asset:{id:'test-logo',name:'test.png',type:'image/png',width:200,height:100}});q.checked=true;return q}
+test('complete request has no missing fields',()=>assert.deepEqual(validate(sample()),[]));
+test('copy carries management number, clears sizes and gets unique ids',()=>{const q=sample(),p=q.products[0],a=copyProduct(p,true);assert.equal(a.manageNo,p.manageNo);assert.equal(a.sizes[0].size,'');assert.equal(a.sizes[0].quantity,'');assert.notEqual(a.id,p.id);assert.notEqual(a.spots[0].id,p.spots[0].id)});
+test('copy edits never change source product or logo settings',()=>{const p=sample().products[0],before=structuredClone(p),copy=copyProduct(p,true);copy.color='白';copy.spots[0].width='99';copy.spots[0].asset.name='changed';assert.deepEqual(p,before)});
+test('product-only copy removes embroidery settings',()=>{const copy=copyProduct(sample().products[0],false);assert.equal(copy.spots[0].asset,null);assert.equal(copy.spots[0].width,'')});
+test('quantity totals span all products and invalid values are ignored',()=>{const q=sample();q.products.push(structuredClone(q.products[0]));assert.equal(total(q),20);q.products[0].sizes.push({id:'bad',size:'XL',quantity:'-2'});assert.equal(total(q),20);assert.equal(subtotal(q.products[0]),10)});
+test('duplicate size detection normalizes case and whitespace',()=>{const p=sample().products[0];p.sizes.push({id:'dup',size:' m ',quantity:'2'});assert.equal(duplicates(p).length,1);assert.ok(validate({...sample(),products:[p]}).some(e=>e.message.includes('重複')))});
+test('fractional and empty quantities fail validation',()=>{const q=sample();q.products[0].sizes[0].quantity='1.5';assert.ok(validate(q).some(e=>e.target.endsWith('-quantity')))});
+test('draft roundtrip retains original asset reference and step',()=>{const q=sample();q.step=3;q.customer.name='';const restored=parseQuote(JSON.parse(JSON.stringify(q)));assert.deepEqual(restored,q)});
+test('draft parser rejects invalid data and duplicate product ids',()=>{assert.throws(()=>parseQuote({}));const q=sample();q.products.push(structuredClone(q.products[0]));assert.throws(()=>parseQuote(q))});
+test('validation identifies the correct step and input',()=>{const q=newQuote();const e=validate(q);assert.ok(e.some(e=>e.step===1&&e.target==='customer-name'));assert.ok(!e.some(e=>e.step===2));assert.ok(e.some(e=>e.step===3&&e.target.endsWith('-file')));assert.ok(e.some(e=>e.step===5&&e.target==='checked'))});
+test('reorders preserve customer id and source independently',()=>{const q=sample(),before=structuredClone(q);for(const [mode,step] of [['same',4],['product',2],['embroidery',3]]){const r=reorder(q,mode);assert.equal(r.step,step);assert.equal(r.customerId,q.customerId);assert.equal(r.sourceId,q.id);assert.equal(r.checked,false);assert.equal(r.delivery,'');assert.notEqual(r.id,q.id);assert.notEqual(r.products[0].id,q.products[0].id);r.products[0].name='changed'}assert.deepEqual(q,before)});
+test('calendar subtraction covers year end',()=>assert.equal(fiveDaysBefore('2027-01-03'),'2026-12-29'));
+test('calendar subtraction covers leap day',()=>assert.equal(fiveDaysBefore('2028-03-05'),'2028-02-29'));
+test('calendar subtraction handles ordinary February',()=>assert.equal(fiveDaysBefore('2027-03-05'),'2027-02-28'));
+test('invalid dates rejected and no date creates no confirmation request',()=>{assert.throws(()=>fiveDaysBefore('2027-02-29'));assert.equal(fiveDaysBefore(''),'');assert.equal(deliveryText(newQuote()),'商品受け取り希望日：指定なし')});
+test('aspect ratio locks either dimension and unlock preserves other side',()=>{const s=sample().products[0].spots[0];assert.equal(resizeSpot(s,'width','100').height,'50');assert.equal(resizeSpot(s,'height','20').width,'40');assert.equal(resizeSpot({...s,lock:false},'width','100').height,'30')});
+test('existing pattern requires reference and chosen colors require names',()=>{const q=sample(),s=q.products[0].spots[0];s.pattern='あり';s.threadMode='指定する';assert.ok(validate(q).some(e=>e.target.endsWith('-reference')));assert.ok(validate(q).some(e=>e.target.endsWith('-thread')))});
+export {sample};
+
+test('all product details may be omitted while embroidery remains required',()=>{const q=sample();const p=newProduct();p.spots=q.products[0].spots;q.products=[p];assert.deepEqual(validate(q),[]);p.sizes[0].size='M';assert.ok(validate(q).some(e=>e.step===2));});

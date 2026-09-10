@@ -10,7 +10,7 @@ const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
 const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
-const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
+const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt' || process.platform === 'win32';
 
 const localBindingConfig = {
   main: 'vinext/server/fetch-handler',
@@ -59,3 +59,4 @@ export default defineConfig(async () => {
     ],
   };
 });
+

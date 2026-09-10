@@ -1,0 +1,1 @@
+export function bodyColor(name:string){if(/^#[0-9a-f]{6}$/i.test(name))return name;return ({'白':'#ffffff','ホワイト':'#ffffff','黒':'#222222','ブラック':'#222222','ネイビー':'#172744','紺':'#172744','赤':'#a82c33','ブルー':'#24598b','グレー':'#92979d','ベージュ':'#d9cbb1'} as Record<string,string>)[name.trim()]||'#ffffff'}

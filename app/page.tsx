@@ -1,42 +1,1359 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
-import {ArrowLeft,ArrowRight,Bookmark,History,Scissors,Plus,Copy,Trash2,Upload,FileText,Check as CheckIcon,Search,Save} from 'lucide-react';
-import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
-import {Field,Choice,Check,Notes,LogoPreview} from '@/components/quote-controls';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bookmark,
+  History,
+  Scissors,
+  Plus,
+  Copy,
+  Trash2,
+  Upload,
+  FileText,
+  Check as CheckIcon,
+  Search,
+  Save,
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import {
+  Field,
+  Choice,
+  Check,
+  Notes,
+  LogoPreview,
+  ThreadColorPicker,
+} from '@/components/quote-controls';
 import QuoteReview from '@/components/quote-review';
-import {api,storeLocal,readLocal,retainOriginal,readOriginal,uploadOriginal,downloadData} from '@/lib/client';
-import {newQuote,newProduct,newSpot,newSize,copyProduct,subtotal,total,steps,validate,reorder,resizeSpot,fiveDaysBefore,uid,type Quote,type Product,type Spot,type Issue} from '@/lib/quote';
-type Saved={id:string;data:Quote;revision:number;updated_at:string};
-export default function Home(){
- const [q,setQ]=useState<Quote|null>(null),[view,setView]=useState<'form'|'history'>('form'),[notice,setNotice]=useState(''),[saveState,setSaveState]=useState('読み込み中…'),[issues,setIssues]=useState<Issue[]>([]),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(''),[history,setHistory]=useState<Saved[]>([]),[search,setSearch]=useState(''),[historyLoading,setHistoryLoading]=useState(false),[confirm,setConfirm]=useState<{message:string;run:()=>void}|null>(null),[savedId,setSavedId]=useState('');
- const current=useRef<Quote|null>(null),revisions=useRef<Record<string,number>>({}),queue=useRef<Promise<unknown>>(Promise.resolve()),timer=useRef<ReturnType<typeof setTimeout>|null>(null),ready=useRef(false),heading=useRef<HTMLDivElement>(null),saveFn=useRef<()=>Promise<unknown>>(async()=>{});
- function install(data:Quote){current.current=data;setQ(data);storeLocal(data)}
- async function persist(data:Quote){setSaveState('下書きを保存中…');const result=await api('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,status:'draft',revision:revisions.current[data.id]||0})});revisions.current[data.id]=result.revision;if(current.current?.id===data.id&&current.current.updatedAt===data.updatedAt)setSaveState('下書き保存済み');return result}
- function enqueue(data:Quote){const next=queue.current.catch(()=>{}).then(()=>persist(data));queue.current=next;next.catch((e:Error)=>{setSaveState('未保存の変更があります');setNotice(e.message)});return next}
- function saveDraft(){if(timer.current)clearTimeout(timer.current);if(!current.current)return Promise.resolve();return enqueue(structuredClone(current.current))}
- saveFn.current=saveDraft;
- function change(fn:(draft:Quote)=>void){if(!current.current)return;const next=structuredClone(current.current);fn(next);next.updatedAt=new Date().toISOString();next.checked=false;install(next);setSavedId('');setSaveState('未保存の変更があります');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>enqueue(next).catch(()=>{}),800)}
- function updateProduct(id:string,fn:(p:Product)=>void){change(d=>{const p=d.products.find(p=>p.id===id);if(p)fn(p)})}
- function updateSpot(pid:string,sid:string,fn:(s:Spot)=>void){updateProduct(pid,p=>{const s=p.spots.find(s=>s.id===sid);if(s)fn(s)})}
- function go(step:number,target?:string){if(!current.current)return;const next={...current.current,step};install(next);setView('form');setIssues([]);setTimeout(()=>{const el=target?document.getElementById(target):heading.current;el?.scrollIntoView({block:'start',behavior:'auto'});el?.focus({preventScroll:true})},50);void saveDraft().catch(()=>{})}
- useEffect(()=>{let alive=true;(async()=>{const local=readLocal();try{const drafts:Saved[]=await api('/api/quotes?status=draft');for(const r of drafts)revisions.current[r.id]=r.revision;const cloud=drafts[0]?.data;const chosen=local&&(!cloud||local.updatedAt>cloud.updatedAt)?local:cloud||newQuote();if(alive){install(chosen);setSaveState(cloud&&chosen===cloud?'下書きを復元しました':local?'この端末の下書きを復元しました':'新しい見積もり依頼');ready.current=true;if(local&&chosen===local)void enqueue(chosen).catch(()=>{})}}catch(e){if(alive){install(local||newQuote());setNotice(e instanceof Error?e.message:'下書きを読み込めませんでした');setSaveState('接続を確認して下書きを保存してください');ready.current=true}}})();return()=>{alive=false;if(timer.current)clearTimeout(timer.current)}},[]);
- useEffect(()=>{function leave(e:BeforeUnloadEvent){if(current.current)storeLocal(current.current);if(saveState.includes('未保存')||saveState.includes('保存中')||uploading){e.preventDefault();e.returnValue=''}}window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave)},[saveState,uploading]);
- useEffect(()=>{const context=(document as unknown as {modelContext?:{registerTool:(tool:unknown,options:unknown)=>Promise<void>}}).modelContext;if(!context?.registerTool)return;const lifecycle=new AbortController();for(const tool of [{name:'read_embroidery_request',description:'入力中の刺繍依頼の数量・現在位置・未入力項目を確認する',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:()=>{if(!current.current)throw new Error('読み込み中です');return {id:current.current.id,step:current.current.step,total:total(current.current),issues:validate(current.current)}}},{name:'save_embroidery_draft',description:'現在の入力を下書きとして保存する。メール送信・注文確定は行わない。',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:async(input:unknown)=>{if(!input||typeof input!=='object'||Object.keys(input).length)throw new Error('引数は空のオブジェクトにしてください');if(!current.current)throw new Error('読み込み中です');await saveFn.current();return {id:current.current.id,saved:true}}}]){try{void Promise.resolve(context.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{})}catch{}}return()=>lifecycle.abort()},[]);
- async function upload(pid:string,sid:string,file?:File){setUploading(sid);try{const original=file||await readOriginal(sid);if(!original)throw new Error('この端末に原稿がありません。ファイルを選択してください');await retainOriginal(sid,original);const asset=await uploadOriginal(original);updateSpot(pid,sid,s=>{s.asset=asset;if(s.lock&&Number(s.width)>0)s.height=String(Math.round(Number(s.width)*asset.height/asset.width*10)/10)});await saveDraft();setNotice('ロゴ原稿を保存しました')}catch(e){setNotice((e as Error).message+' 必要に応じて「原稿の保存を再試行」を押してください。')}finally{setUploading('')}}
- async function showHistory(){try{await saveDraft()}catch{}setView('history');setHistoryLoading(true);try{setHistory(await api('/api/quotes?status=saved'))}catch(e){setNotice((e as Error).message)}finally{setHistoryLoading(false)}}
- async function archive(){const data=current.current;if(!data)return;const missing=validate(data);if(missing.length){setIssues(missing);go(missing[0].step,missing[0].target);setIssues(missing);return}setBusy(true);try{await saveDraft();const snapshot={...structuredClone(data),id:uid()};await api('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:snapshot,status:'saved',revision:0})});setSavedId(snapshot.id);setNotice('依頼内容を履歴に保存しました。メールは送信していません。')}catch(e){setNotice((e as Error).message)}finally{setBusy(false)}}
- async function startAgain(data:Quote,mode:'same'|'product'|'embroidery'){try{await saveDraft();const next=reorder(data,mode);install(next);setView('form');setSavedId('');setIssues([]);await enqueue(next);setNotice('元の履歴を残して、新しい依頼として呼び出しました。納期と確認事項は再入力してください。');go(next.step)}catch(e){setNotice((e as Error).message)}}
- useEffect(()=>{if(view!=='history')return;let active=true;const timer=setTimeout(()=>{setHistoryLoading(true);api<Saved[]>('/api/quotes?status=saved&search='+encodeURIComponent(search)).then(rows=>{if(active)setHistory(rows)}).catch(e=>{if(active)setNotice(e.message)}).finally(()=>{if(active)setHistoryLoading(false)})},250);return()=>{active=false;clearTimeout(timer)}},[view,search]);
- const filtered=history.filter(r=>JSON.stringify([r.data.customer,r.id,r.data.products.map(p=>[p.name,p.sku,p.manageNo])]).toLowerCase().includes(search.toLowerCase()));
- if(!q)return <main className="loading"><Scissors style={{margin:'auto'}}/><p>見積もり依頼を準備しています…</p></main>;
- return <><header className="topbar"><div className="brand"><Scissors/><span>ロゴ刺繍<small>見積もり依頼</small></span></div><div className="toolbar"><span className="private-badge">本人確認用</span><button className="quiet" onClick={()=>void showHistory()}><History size={18}/>履歴</button><button className="secondary" disabled={!!uploading} onClick={()=>void saveDraft().then(()=>setNotice('下書きを保存しました')).catch(()=>{})}><Save size={17}/>下書き保存</button></div></header>{notice&&<div className="notice" role="status">{notice}<button className="quiet" aria-label="お知らせを閉じる" onClick={()=>setNotice('')}>×</button></div>}<main className="workspace"><div className="intro heading-row"><div><p className="eyebrow">EMBROIDERY REQUEST</p><h1>{view==='history'?'これまでの見積もり依頼':'ロゴ刺繍の見積もり依頼'}</h1><p className="muted">{view==='history'?'保存した内容を確認し、次の依頼に使えます。':'商品とロゴの情報をまとめて、見積もりの準備をしましょう。'}</p></div>{view==='history'&&<button className="secondary" onClick={()=>setView('form')}><ArrowLeft size={17}/>入力に戻る</button>}</div>
- {view==='history'?<><div className="heading-row"><label className="field" style={{flex:1,marginTop:0}}><span className="toolbar"><Search size={16}/>お名前・会社・商品名・品番・管理番号・依頼番号で検索</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="検索するキーワード"/></label><button className="secondary" onClick={()=>setConfirm({message:'現在の下書きを保存して、新しい見積もり依頼を始めます。',run:()=>void saveDraft().then(()=>{const fresh=newQuote();install(fresh);setView('form');setSavedId('');setIssues([]);void enqueue(fresh).catch(()=>{})}).catch(()=>{})})}><Plus size={17}/>新しい依頼</button></div>{historyLoading?<p className="callout">履歴を読み込み中…</p>:filtered.length?filtered.map(r=><article className="history-card" key={r.id}><div className="heading-row"><h3>{r.data.customer.company||r.data.customer.name} ／ {r.data.products[0]?.name}</h3><span className="muted">{new Date(r.updated_at).toLocaleString('ja-JP')}</span></div><p className="muted">{r.data.products.length}商品・合計{total(r.data)}着 ／ 依頼番号 {r.id}</p><div className="toolbar"><a className="secondary" href={`/report?id=${encodeURIComponent(r.id)}`} target="_blank" rel="noreferrer"><FileText size={16}/>依頼書・PDF</a><button className="secondary" onClick={()=>void startAgain(r.data,'same')}>商品・刺繍とも同じ</button><button className="secondary" onClick={()=>void startAgain(r.data,'product')}>商品だけ変更</button><button className="secondary" onClick={()=>void startAgain(r.data,'embroidery')}>刺繍だけ変更</button></div></article>):<div className="empty"><History/><h3>{search?'該当する履歴がありません':'まだ保存した依頼はありません'}</h3><p className="muted">5ステップ目で「依頼内容を履歴に保存」を押すと、ここから呼び出せます。</p></div>}<p className="muted" style={{marginTop:20}}>新しい順に最大100件を表示します。履歴があるだけで型代不要や加工可能とは確定しません。</p></>:<div className="workgrid"><section className="formcard"><nav className="stepnav" aria-label="入力ステップ">{steps.map((s,i)=><button key={s} onClick={()=>go(i+1)} className={q.step===i+1?'current':q.step>i+1?'done':''} aria-current={q.step===i+1?'step':undefined}><b>{q.step>i+1?<CheckIcon size={16}/>:i+1}</b><span>{s}</span></button>)}</nav><div className="formbody" ref={heading} tabIndex={-1}><p className="eyebrow">STEP {String(q.step).padStart(2,'0')} / 05</p><h2>{steps[q.step-1]}</h2>{issues.length>0&&<div className="errors" role="alert"><b>入力内容を確認してください</b>{issues.map((e,i)=><button key={i} onClick={()=>go(e.step,e.target)}>{e.message}</button>)}</div>}
- {q.step===1&&<><p className="muted">会社組織名、ご担当者様名、電話番号を順に入力してください。</p><Field label="会社組織名" id="customer-company" required value={q.customer.company} onChange={v=>change(d=>{d.customer.company=v})} placeholder="例：株式会社 サンプル"/><Field label="ご担当者様名" id="customer-name" required value={q.customer.name} onChange={v=>change(d=>{d.customer.name=v})} placeholder="例：山田 太郎"/><Field label="電話番号" id="customer-phone" type="tel" required value={q.customer.phone} onChange={v=>change(d=>{d.customer.phone=v})} placeholder="090-0000-0000"/><section className="line-guide" aria-labelledby="line-guide-title"><div><h3 id="line-guide-title">LINE登録のご案内</h3><p>お見積もりや仕上がり確認のやり取りに、店舗LINEをご利用いただけます。こちらのQRコードから友だち追加をお願いいたします。</p><p className="muted">LINE登録は任意です。登録せずに見積もり依頼を進めることもできます。</p><Choice label="LINE登録状況（任意）" value={q.customer.lineRegistration||'未選択'} options={['未選択','登録済み','登録する','登録しない']} onChange={v=>change(d=>{d.customer.lineRegistration=v})}/></div><figure><img src="/store-line-qr.jpg" width="600" height="600" alt="店舗LINEの友だち追加用QRコード"/><figcaption>店舗LINEを友だち追加</figcaption></figure></section></>}
- {q.step===2&&<><button className="secondary" onClick={()=>go(3)}>商品情報を省略して、刺繍情報へ</button><p className="muted" style={{marginTop:16}}>商品情報は任意です。未定の場合は空欄のまま次へ進めます。色・品番が異なる商品は分けて追加してください。</p>{q.products.map((p,i)=><article className="product-card" key={p.id}><div className="heading-row"><h3><span className="section-label">商品 {String(i+1).padStart(2,'0')}</span>　{p.name||'新しい商品'}</h3>{q.products.length>1&&<button className="quiet danger" onClick={()=>setConfirm({message:`商品${i+1}と、その刺繍内容をこの下書きから削除します。`,run:()=>change(d=>{d.products=d.products.filter(x=>x.id!==p.id)})})}><Trash2 size={17}/>削除</button>}</div><Field label="商品名" id={`${p.id}-name`} value={p.name} onChange={v=>updateProduct(p.id,x=>{x.name=v})} placeholder="例：ドライポロシャツ"/><div className="grid2"><Choice label="種類" value={p.kind} options={['未指定','ポロシャツ','Tシャツ','シャツ','ジャケット','スウェット','帽子','バッグ','タオル','その他']} onChange={v=>updateProduct(p.id,x=>{x.kind=v})}/><Field label="品番" value={p.sku} onChange={v=>updateProduct(p.id,x=>{x.sku=v})}/><Field label="管理番号" value={p.manageNo} onChange={v=>updateProduct(p.id,x=>{x.manageNo=v})}/><Field label="色" id={`${p.id}-color`} value={p.color} onChange={v=>updateProduct(p.id,x=>{x.color=v})} placeholder="例：ネイビー"/></div><Field label="素材・混率" id={`${p.id}-material`} value={p.material} onChange={v=>updateProduct(p.id,x=>{x.material=v})} placeholder="例：綿100%、または不明"/><div id={`${p.id}-sizes`} tabIndex={-1}>{p.sizes.map(s=><div className="size-row" key={s.id}><Field label="サイズ" id={`${s.id}-size`} value={s.size} onChange={v=>{if(v.trim()&&p.sizes.some(r=>r.id!==s.id&&r.size.trim().toUpperCase()===v.trim().toUpperCase())){setNotice('同じサイズは追加できません。既存の行の数量を変更してください。');return}updateProduct(p.id,x=>{x.sizes.find(r=>r.id===s.id)!.size=v})}} placeholder="M・L・フリー等"/><Field label="数量（着）" id={`${s.id}-quantity`} type="number" min="1" step="1" value={s.quantity} onChange={v=>updateProduct(p.id,x=>{x.sizes.find(r=>r.id===s.id)!.quantity=v})}/><button className="quiet" aria-label={`${s.size||'未入力'}サイズ行を削除`} disabled={p.sizes.length===1} onClick={()=>updateProduct(p.id,x=>{x.sizes=x.sizes.filter(r=>r.id!==s.id)})}><Trash2 size={17}/></button></div>)}</div><button className="quiet" onClick={()=>updateProduct(p.id,x=>{x.sizes.push(newSize())})}><Plus size={16}/>サイズを追加</button><p className="sub-total">この商品の小計　<b>{subtotal(p)}</b> 着</p><div className="copy-box"><p>色違いの商品などを作れます。管理番号は引き継ぎ、サイズ・数量は空欄にします。</p><div className="toolbar"><button className="secondary" onClick={()=>change(d=>{d.products.push(copyProduct(p,false))})}><Copy size={15}/>商品情報だけコピー</button><button className="secondary" onClick={()=>change(d=>{d.products.push(copyProduct(p,true))})}><Copy size={15}/>商品＋刺繍をコピー</button></div></div></article>)}<button id="add-product" className="secondary" onClick={()=>change(d=>{d.products.push(newProduct())})}><Plus size={18}/>別の商品を追加</button></>}
- {q.step===3&&<><p className="muted">商品ごとに、刺繍を入れる部位とロゴを指定してください。</p>{q.products.map((p,i)=><section className="product-card" id={`${p.id}-spots`} tabIndex={-1} key={p.id}><h3>商品 {i+1}　{p.name||'商品未指定'}</h3>{p.spots.map((s,j)=><article key={s.id} className="review-block"><div className="heading-row"><b>刺繍箇所 {j+1}</b>{p.spots.length>1&&<button className="quiet danger" onClick={()=>setConfirm({message:`刺繍箇所${j+1}をこの商品から削除します。`,run:()=>updateProduct(p.id,x=>{x.spots=x.spots.filter(a=>a.id!==s.id)})})}><Trash2 size={16}/>削除</button>}</div><Choice label="加工部位" value={s.location} options={['左胸','右胸','背中','左袖','右袖','正面','その他']} onChange={v=>updateSpot(p.id,s.id,x=>{x.location=v})}/>{s.location==='その他'&&<Field label="部位の詳細" id={`${s.id}-other`} required value={s.other} onChange={v=>updateSpot(p.id,s.id,x=>{x.other=v})}/>}<div className="filebox"><Upload size={24}/><label htmlFor={`${s.id}-file`}><b>{s.asset?s.asset.name:'ロゴ原稿を選択'}</b><span className="muted" style={{display:'block'}}>この画面ではPNG・JPEG・WebP、1ファイル10MBまで</span></label><input id={`${s.id}-file`} type="file" accept="image/png,image/jpeg,image/webp" disabled={!!uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(p.id,s.id,f)}}/><button className="quiet" disabled={!!uploading} onClick={()=>void upload(p.id,s.id)}>{uploading===s.id?'原稿を保存中…':'原稿の保存を再試行'}</button></div><div className="grid2"><Field label="希望横幅（mm）" id={`${s.id}-width`} type="number" min="0.1" step="0.1" required value={s.width} onChange={v=>updateSpot(p.id,s.id,x=>Object.assign(x,resizeSpot(x,'width',v)))}/><Field label="希望高さ（mm）" id={`${s.id}-height`} type="number" min="0.1" step="0.1" required value={s.height} onChange={v=>updateSpot(p.id,s.id,x=>Object.assign(x,resizeSpot(x,'height',v)))}/></div><Check label="原稿の縦横比を保持する" checked={s.lock} onChange={v=>updateSpot(p.id,s.id,x=>{x.lock=v;if(v&&x.asset&&Number(x.width)>0)Object.assign(x,resizeSpot(x,'width',x.width))})}/><LogoPreview spot={s}/><Choice label="希望糸色" value={s.threadMode} options={['業者に相談','指定する']} onChange={v=>updateSpot(p.id,s.id,x=>{x.threadMode=v})}/>{s.threadMode==='指定する'&&<Field label="色名・指定番号" id={`${s.id}-thread`} required value={s.thread} onChange={v=>updateSpot(p.id,s.id,x=>{x.thread=v})} placeholder="例：白、ネイビー／色番号など"/>}<Choice label="刺繍型データ" value={s.pattern} options={['あり','なし','不明']} onChange={v=>updateSpot(p.id,s.id,x=>{x.pattern=v})}/>{s.pattern==='あり'&&<Field label="型データの参照番号・元の依頼" id={`${s.id}-reference`} required value={s.reference} onChange={v=>updateSpot(p.id,s.id,x=>{x.reference=v})}/>}<Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>updateSpot(p.id,s.id,x=>{x.notes=v})}/></article>)}<button className="secondary" style={{marginTop:20}} onClick={()=>updateProduct(p.id,x=>{x.spots.push(newSpot())})}><Plus size={17}/>刺繍箇所を追加</button></section>)}<div className="callout">画面の色と実際の刺繍糸の色は異なります。対応素材・寸法・加工可否、必要な入稿形式は業者が確認します。</div></>}
- {q.step===4&&<><p className="muted">お客様が商品を受け取りたい日を指定してください。未定の場合は空欄のまま進めます。</p><Field label="商品受け取り希望日" id="delivery" type="date" value={q.delivery} onChange={v=>change(d=>{d.delivery=v})}/>{q.delivery&&<div className="callout"><b>希望日の5日前：{fiveDaysBefore(q.delivery)}</b><p style={{margin:'6px 0 0'}}>暦日で計算しています。依頼書には両方の日付を記載し、対応可否を確認します。納期を保証するものではありません。</p></div>}<button className="quiet" onClick={()=>change(d=>{d.delivery=''})}>日付を指定しない</button><Notes label="納期に関する補足" value={q.deliveryNotes} onChange={v=>change(d=>{d.deliveryNotes=v})}/></>}
- {q.step===5&&<><p className="muted">依頼内容を確認し、履歴に保存すると見積依頼書を作成できます。</p><QuoteReview quote={q}/><Check id="checked" label="入力内容と参考図を確認しました。価格・型代・加工可否・納期は業者の確認が必要で、この保存操作では発注・送信されないことを確認しました。" checked={q.checked} onChange={v=>{const next={...q,checked:v,updatedAt:new Date().toISOString()};install(next);setSaveState('未保存の変更があります');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>enqueue(next).catch(()=>{}),800)}}/><div className="toolbar"><button className="primary" disabled={busy||!!uploading} onClick={()=>void archive()}><Bookmark size={17}/>{busy?'保存しています…':'依頼内容を履歴に保存'}</button><button className="secondary" onClick={()=>downloadData(q)}>再編集用データを保存</button></div>{savedId&&<div className="callout"><p>履歴への保存が完了しました。</p><a className="primary" href={`/report?id=${encodeURIComponent(savedId)}`} target="_blank" rel="noreferrer"><FileText size={18}/>見積依頼書・PDFを開く</a></div>}<p className="muted" style={{marginTop:20}}>メール送信先・送信元・CC・認証方法が未設定のため、自動送信は利用できません。</p><button className="secondary" disabled>メール送信（未設定）</button></>}
- </div><footer className="formfooter">{q.step>1?<button className="secondary" onClick={()=>go(q.step-1)}><ArrowLeft size={17}/>戻る</button>:<span>途中で中断しても、下書きから再開できます</span>}{q.step<5&&<button className="primary" disabled={!!uploading} onClick={()=>{const missing=validate(q).filter(e=>e.step===q.step);if(missing.length){setIssues(missing);setTimeout(()=>document.getElementById(missing[0].target)?.focus(),0)}else go(q.step+1)}}>次へ：{steps[q.step]}<ArrowRight size={17}/></button>}</footer></section><aside><div className="summary"><Scissors size={28}/><h3>今回の見積もり</h3><p>ロゴマーク刺繍</p><hr/><div className="stat"><span>商品</span><b>{q.products.length} <small>点</small></b></div><div className="stat"><span>合計数量</span><b>{total(q)>0?total(q):'—'} <small>{total(q)>0?'着':'未指定'}</small></b></div><hr/><p className="muted">価格・型代・加工可否は、業者による確認後のご案内です。</p></div><div className="aside-note"><Save size={18}/><p role="status">{saveState}</p></div><div className="aside-note"><Bookmark size={18}/><p>商品・刺繍の入力と原稿を保存し、後から編集できます。</p></div><div className="aside-note"><History size={18}/><p>過去の依頼を呼び出して、再注文にも使えます。</p></div></aside></div>}
- <p className="trial-note">確認用の試作です。テスト用の情報・ロゴをご利用ください。</p></main><AlertDialog open={!!confirm} onOpenChange={v=>{if(!v)setConfirm(null)}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>内容を確認してください</AlertDialogTitle><AlertDialogDescription>{confirm?.message}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>戻る</AlertDialogCancel><AlertDialogAction onClick={()=>{confirm?.run();setConfirm(null)}}>続ける</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>;
+import {
+  api,
+  storeLocal,
+  readLocal,
+  retainOriginal,
+  readOriginal,
+  uploadOriginal,
+  downloadData,
+} from '@/lib/client';
+import {
+  newQuote,
+  newProduct,
+  newSpot,
+  newSize,
+  copyProduct,
+  subtotal,
+  total,
+  steps,
+  validate,
+  reorder,
+  resizeSpot,
+  fiveDaysBefore,
+  uid,
+  type Quote,
+  type Product,
+  type Spot,
+  type Issue,
+} from '@/lib/quote';
+type Saved = { id: string; data: Quote; revision: number; updated_at: string };
+export default function Home() {
+  const [q, setQ] = useState<Quote | null>(null),
+    [view, setView] = useState<'form' | 'history'>('form'),
+    [notice, setNotice] = useState(''),
+    [saveState, setSaveState] = useState('読み込み中…'),
+    [issues, setIssues] = useState<Issue[]>([]),
+    [busy, setBusy] = useState(false),
+    [uploading, setUploading] = useState(''),
+    [history, setHistory] = useState<Saved[]>([]),
+    [search, setSearch] = useState(''),
+    [historyLoading, setHistoryLoading] = useState(false),
+    [confirm, setConfirm] = useState<{
+      message: string;
+      run: () => void;
+    } | null>(null),
+    [savedId, setSavedId] = useState('');
+  const current = useRef<Quote | null>(null),
+    revisions = useRef<Record<string, number>>({}),
+    queue = useRef<Promise<unknown>>(Promise.resolve()),
+    timer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    ready = useRef(false),
+    heading = useRef<HTMLDivElement>(null),
+    saveFn = useRef<() => Promise<unknown>>(async () => {});
+  function install(data: Quote) {
+    current.current = data;
+    setQ(data);
+    storeLocal(data);
+  }
+  async function persist(data: Quote) {
+    setSaveState('下書きを保存中…');
+    const result = await api('/api/quotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data,
+        status: 'draft',
+        revision: revisions.current[data.id] || 0,
+      }),
+    });
+    revisions.current[data.id] = result.revision;
+    if (
+      current.current?.id === data.id &&
+      current.current.updatedAt === data.updatedAt
+    )
+      setSaveState('下書き保存済み');
+    return result;
+  }
+  function enqueue(data: Quote) {
+    const next = queue.current.catch(() => {}).then(() => persist(data));
+    queue.current = next;
+    next.catch((e: Error) => {
+      setSaveState('未保存の変更があります');
+      setNotice(e.message);
+    });
+    return next;
+  }
+  function saveDraft() {
+    if (timer.current) clearTimeout(timer.current);
+    if (!current.current) return Promise.resolve();
+    return enqueue(structuredClone(current.current));
+  }
+  saveFn.current = saveDraft;
+  function change(fn: (draft: Quote) => void) {
+    if (!current.current) return;
+    const next = structuredClone(current.current);
+    fn(next);
+    next.updatedAt = new Date().toISOString();
+    next.checked = false;
+    install(next);
+    setSavedId('');
+    setSaveState('未保存の変更があります');
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => enqueue(next).catch(() => {}), 800);
+  }
+  function updateProduct(id: string, fn: (p: Product) => void) {
+    change((d) => {
+      const p = d.products.find((p) => p.id === id);
+      if (p) fn(p);
+    });
+  }
+  function updateSpot(pid: string, sid: string, fn: (s: Spot) => void) {
+    updateProduct(pid, (p) => {
+      const s = p.spots.find((s) => s.id === sid);
+      if (s) fn(s);
+    });
+  }
+  function go(step: number, target?: string) {
+    if (!current.current) return;
+    const next = { ...current.current, step };
+    install(next);
+    setView('form');
+    setIssues([]);
+    setTimeout(() => {
+      const el = target ? document.getElementById(target) : heading.current;
+      el?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      el?.focus({ preventScroll: true });
+    }, 50);
+    void saveDraft().catch(() => {});
+  }
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const local = readLocal();
+      try {
+        const drafts: Saved[] = await api('/api/quotes?status=draft');
+        for (const r of drafts) revisions.current[r.id] = r.revision;
+        const cloud = drafts[0]?.data;
+        const chosen =
+          local && (!cloud || local.updatedAt > cloud.updatedAt)
+            ? local
+            : cloud || newQuote();
+        if (alive) {
+          install(chosen);
+          setSaveState(
+            cloud && chosen === cloud
+              ? '下書きを復元しました'
+              : local
+                ? 'この端末の下書きを復元しました'
+                : '新しい見積もり依頼',
+          );
+          ready.current = true;
+          if (local && chosen === local) void enqueue(chosen).catch(() => {});
+        }
+      } catch (e) {
+        if (alive) {
+          install(local || newQuote());
+          setNotice(
+            e instanceof Error ? e.message : '下書きを読み込めませんでした',
+          );
+          setSaveState('接続を確認して下書きを保存してください');
+          ready.current = true;
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+  useEffect(() => {
+    function leave(e: BeforeUnloadEvent) {
+      if (current.current) storeLocal(current.current);
+      if (
+        saveState.includes('未保存') ||
+        saveState.includes('保存中') ||
+        uploading
+      ) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', leave);
+    return () => window.removeEventListener('beforeunload', leave);
+  }, [saveState, uploading]);
+  useEffect(() => {
+    const context = (
+      document as unknown as {
+        modelContext?: {
+          registerTool: (tool: unknown, options: unknown) => Promise<void>;
+        };
+      }
+    ).modelContext;
+    if (!context?.registerTool) return;
+    const lifecycle = new AbortController();
+    for (const tool of [
+      {
+        name: 'read_embroidery_request',
+        description: '入力中の刺繍依頼の数量・現在位置・未入力項目を確認する',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: true, untrustedContentHint: true },
+        execute: () => {
+          if (!current.current) throw new Error('読み込み中です');
+          return {
+            id: current.current.id,
+            step: current.current.step,
+            total: total(current.current),
+            issues: validate(current.current),
+          };
+        },
+      },
+      {
+        name: 'save_embroidery_draft',
+        description:
+          '現在の入力を下書きとして保存する。メール送信・注文確定は行わない。',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: false, untrustedContentHint: false },
+        execute: async (input: unknown) => {
+          if (!input || typeof input !== 'object' || Object.keys(input).length)
+            throw new Error('引数は空のオブジェクトにしてください');
+          if (!current.current) throw new Error('読み込み中です');
+          await saveFn.current();
+          return { id: current.current.id, saved: true };
+        },
+      },
+    ]) {
+      try {
+        void Promise.resolve(
+          context.registerTool(tool, { signal: lifecycle.signal }),
+        ).catch(() => {});
+      } catch {}
+    }
+    return () => lifecycle.abort();
+  }, []);
+  async function upload(pid: string, sid: string, file?: File) {
+    setUploading(sid);
+    try {
+      const original = file || (await readOriginal(sid));
+      if (!original)
+        throw new Error(
+          'この端末に原稿がありません。ファイルを選択してください',
+        );
+      await retainOriginal(sid, original);
+      const asset = await uploadOriginal(original);
+      updateSpot(pid, sid, (s) => {
+        s.asset = asset;
+        if (s.lock && Number(s.width) > 0)
+          s.height = String(
+            Math.round(((Number(s.width) * asset.height) / asset.width) * 10) /
+              10,
+          );
+      });
+      await saveDraft();
+      setNotice('ロゴ原稿を保存しました');
+    } catch (e) {
+      setNotice(
+        (e as Error).message +
+          ' 必要に応じて「原稿の保存を再試行」を押してください。',
+      );
+    } finally {
+      setUploading('');
+    }
+  }
+  async function showHistory() {
+    try {
+      await saveDraft();
+    } catch {}
+    setView('history');
+    setHistoryLoading(true);
+    try {
+      setHistory(await api('/api/quotes?status=saved'));
+    } catch (e) {
+      setNotice((e as Error).message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+  async function archive() {
+    const data = current.current;
+    if (!data) return;
+    const missing = validate(data);
+    if (missing.length) {
+      setIssues(missing);
+      go(missing[0].step, missing[0].target);
+      setIssues(missing);
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveDraft();
+      const snapshot = { ...structuredClone(data), id: uid() };
+      await api('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: snapshot, status: 'saved', revision: 0 }),
+      });
+      setSavedId(snapshot.id);
+      setNotice('依頼内容を履歴に保存しました。メールは送信していません。');
+    } catch (e) {
+      setNotice((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function startAgain(
+    data: Quote,
+    mode: 'same' | 'product' | 'embroidery',
+  ) {
+    try {
+      await saveDraft();
+      const next = reorder(data, mode);
+      install(next);
+      setView('form');
+      setSavedId('');
+      setIssues([]);
+      await enqueue(next);
+      setNotice(
+        '元の履歴を残して、新しい依頼として呼び出しました。納期と確認事項は再入力してください。',
+      );
+      go(next.step);
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+  }
+  useEffect(() => {
+    if (view !== 'history') return;
+    let active = true;
+    const timer = setTimeout(() => {
+      setHistoryLoading(true);
+      api<Saved[]>(
+        '/api/quotes?status=saved&search=' + encodeURIComponent(search),
+      )
+        .then((rows) => {
+          if (active) setHistory(rows);
+        })
+        .catch((e) => {
+          if (active) setNotice(e.message);
+        })
+        .finally(() => {
+          if (active) setHistoryLoading(false);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [view, search]);
+  const filtered = history.filter((r) =>
+    JSON.stringify([
+      r.data.customer,
+      r.id,
+      r.data.products.map((p) => [p.name, p.sku, p.manageNo]),
+    ])
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  if (!q)
+    return (
+      <main className="loading">
+        <Scissors style={{ margin: 'auto' }} />
+        <p>見積もり依頼を準備しています…</p>
+      </main>
+    );
+  return (
+    <>
+      <header className="topbar">
+        <div className="brand">
+          <Scissors />
+          <span>
+            ロゴ刺繍<small>見積もり依頼</small>
+          </span>
+        </div>
+        <div className="toolbar">
+          <span className="private-badge">本人確認用</span>
+          <button className="quiet" onClick={() => void showHistory()}>
+            <History size={18} />
+            履歴
+          </button>
+          <button
+            className="secondary"
+            disabled={!!uploading}
+            onClick={() =>
+              void saveDraft()
+                .then(() => setNotice('下書きを保存しました'))
+                .catch(() => {})
+            }
+          >
+            <Save size={17} />
+            下書き保存
+          </button>
+        </div>
+      </header>
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+          <button
+            className="quiet"
+            aria-label="お知らせを閉じる"
+            onClick={() => setNotice('')}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <main className="workspace">
+        <div className="intro heading-row">
+          <div>
+            <p className="eyebrow">EMBROIDERY REQUEST</p>
+            <h1>
+              {view === 'history'
+                ? 'これまでの見積もり依頼'
+                : 'ロゴ刺繍の見積もり依頼'}
+            </h1>
+            <p className="muted">
+              {view === 'history'
+                ? '保存した内容を確認し、次の依頼に使えます。'
+                : '商品とロゴの情報をまとめて、見積もりの準備をしましょう。'}
+            </p>
+          </div>
+          {view === 'history' && (
+            <button className="secondary" onClick={() => setView('form')}>
+              <ArrowLeft size={17} />
+              入力に戻る
+            </button>
+          )}
+        </div>
+        {view === 'history' ? (
+          <>
+            <div className="heading-row">
+              <label className="field" style={{ flex: 1, marginTop: 0 }}>
+                <span className="toolbar">
+                  <Search size={16} />
+                  お名前・会社・商品名・品番・管理番号・依頼番号で検索
+                </span>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="検索するキーワード"
+                />
+              </label>
+              <button
+                className="secondary"
+                onClick={() =>
+                  setConfirm({
+                    message:
+                      '現在の下書きを保存して、新しい見積もり依頼を始めます。',
+                    run: () =>
+                      void saveDraft()
+                        .then(() => {
+                          const fresh = newQuote();
+                          install(fresh);
+                          setView('form');
+                          setSavedId('');
+                          setIssues([]);
+                          void enqueue(fresh).catch(() => {});
+                        })
+                        .catch(() => {}),
+                  })
+                }
+              >
+                <Plus size={17} />
+                新しい依頼
+              </button>
+            </div>
+            {historyLoading ? (
+              <p className="callout">履歴を読み込み中…</p>
+            ) : filtered.length ? (
+              filtered.map((r) => (
+                <article className="history-card" key={r.id}>
+                  <div className="heading-row">
+                    <h3>
+                      {r.data.customer.company || r.data.customer.name} ／{' '}
+                      {r.data.products[0]?.name}
+                    </h3>
+                    <span className="muted">
+                      {new Date(r.updated_at).toLocaleString('ja-JP')}
+                    </span>
+                  </div>
+                  <p className="muted">
+                    {r.data.products.length}商品・合計{total(r.data)}着 ／
+                    依頼番号 {r.id}
+                  </p>
+                  <div className="toolbar">
+                    <a
+                      className="secondary"
+                      href={`/report?id=${encodeURIComponent(r.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <FileText size={16} />
+                      依頼書・PDF
+                    </a>
+                    <button
+                      className="secondary"
+                      onClick={() => void startAgain(r.data, 'same')}
+                    >
+                      商品・刺繍とも同じ
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => void startAgain(r.data, 'product')}
+                    >
+                      商品だけ変更
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => void startAgain(r.data, 'embroidery')}
+                    >
+                      刺繍だけ変更
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty">
+                <History />
+                <h3>
+                  {search
+                    ? '該当する履歴がありません'
+                    : 'まだ保存した依頼はありません'}
+                </h3>
+                <p className="muted">
+                  5ステップ目で「依頼内容を履歴に保存」を押すと、ここから呼び出せます。
+                </p>
+              </div>
+            )}
+            <p className="muted" style={{ marginTop: 20 }}>
+              新しい順に最大100件を表示します。履歴があるだけで型代不要や加工可能とは確定しません。
+            </p>
+          </>
+        ) : (
+          <div className="workgrid">
+            <section className="formcard">
+              <nav className="stepnav" aria-label="入力ステップ">
+                {steps.map((s, i) => (
+                  <button
+                    key={s}
+                    onClick={() => go(i + 1)}
+                    className={
+                      q.step === i + 1
+                        ? 'current'
+                        : q.step > i + 1
+                          ? 'done'
+                          : ''
+                    }
+                    aria-current={q.step === i + 1 ? 'step' : undefined}
+                  >
+                    <b>{q.step > i + 1 ? <CheckIcon size={16} /> : i + 1}</b>
+                    <span>{s}</span>
+                  </button>
+                ))}
+              </nav>
+              <div className="formbody" ref={heading} tabIndex={-1}>
+                <p className="eyebrow">
+                  STEP {String(q.step).padStart(2, '0')} / 05
+                </p>
+                <h2>{steps[q.step - 1]}</h2>
+                {issues.length > 0 && (
+                  <div className="errors" role="alert">
+                    <b>入力内容を確認してください</b>
+                    {issues.map((e, i) => (
+                      <button key={i} onClick={() => go(e.step, e.target)}>
+                        {e.message}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {q.step === 1 && (
+                  <>
+                    <p className="muted">
+                      会社組織名、ご担当者様名、電話番号を順に入力してください。
+                    </p>
+                    <Field
+                      label="会社組織名"
+                      id="customer-company"
+                      required
+                      value={q.customer.company}
+                      onChange={(v) =>
+                        change((d) => {
+                          d.customer.company = v;
+                        })
+                      }
+                      placeholder="例：株式会社 サンプル"
+                    />
+                    <Field
+                      label="ご担当者様名"
+                      id="customer-name"
+                      required
+                      value={q.customer.name}
+                      onChange={(v) =>
+                        change((d) => {
+                          d.customer.name = v;
+                        })
+                      }
+                      placeholder="例：山田 太郎"
+                    />
+                    <Field
+                      label="電話番号"
+                      id="customer-phone"
+                      type="tel"
+                      required
+                      value={q.customer.phone}
+                      onChange={(v) =>
+                        change((d) => {
+                          d.customer.phone = v;
+                        })
+                      }
+                      placeholder="090-0000-0000"
+                    />
+                    <section
+                      className="line-guide"
+                      aria-labelledby="line-guide-title"
+                    >
+                      <div>
+                        <h3 id="line-guide-title">LINE登録のご案内</h3>
+                        <p>
+                          お見積もりや仕上がり確認のやり取りに、店舗LINEをご利用いただけます。こちらのQRコードから友だち追加をお願いいたします。
+                        </p>
+                        <p className="muted">
+                          LINE登録は任意です。登録せずに見積もり依頼を進めることもできます。
+                        </p>
+                        <Choice
+                          label="LINE登録状況（任意）"
+                          value={q.customer.lineRegistration || '未選択'}
+                          options={[
+                            '未選択',
+                            '登録済み',
+                            '登録する',
+                            '登録しない',
+                          ]}
+                          onChange={(v) =>
+                            change((d) => {
+                              d.customer.lineRegistration = v;
+                            })
+                          }
+                        />
+                      </div>
+                      <figure>
+                        <img
+                          src="/store-line-qr.jpg"
+                          width="600"
+                          height="600"
+                          alt="店舗LINEの友だち追加用QRコード"
+                        />
+                        <figcaption>店舗LINEを友だち追加</figcaption>
+                      </figure>
+                    </section>
+                  </>
+                )}
+                {q.step === 2 && (
+                  <>
+                    <button className="secondary" onClick={() => go(3)}>
+                      商品情報を省略して、刺繍情報へ
+                    </button>
+                    <p className="muted" style={{ marginTop: 16 }}>
+                      商品情報は任意です。未定の場合は空欄のまま次へ進めます。色・品番が異なる商品は分けて追加してください。
+                    </p>
+                    {q.products.map((p, i) => (
+                      <article className="product-card" key={p.id}>
+                        <div className="heading-row">
+                          <h3>
+                            <span className="section-label">
+                              商品 {String(i + 1).padStart(2, '0')}
+                            </span>
+                            　{p.name || '新しい商品'}
+                          </h3>
+                          {q.products.length > 1 && (
+                            <button
+                              className="quiet danger"
+                              onClick={() =>
+                                setConfirm({
+                                  message: `商品${i + 1}と、その刺繍内容をこの下書きから削除します。`,
+                                  run: () =>
+                                    change((d) => {
+                                      d.products = d.products.filter(
+                                        (x) => x.id !== p.id,
+                                      );
+                                    }),
+                                })
+                              }
+                            >
+                              <Trash2 size={17} />
+                              削除
+                            </button>
+                          )}
+                        </div>
+                        <Field
+                          label="商品名"
+                          id={`${p.id}-name`}
+                          value={p.name}
+                          onChange={(v) =>
+                            updateProduct(p.id, (x) => {
+                              x.name = v;
+                            })
+                          }
+                          placeholder="例：ドライポロシャツ"
+                        />
+                        <div className="grid2">
+                          <Choice
+                            label="種類"
+                            value={p.kind}
+                            options={[
+                              '未指定',
+                              'ポロシャツ',
+                              'Tシャツ',
+                              'シャツ',
+                              'ジャケット',
+                              'スウェット',
+                              '帽子',
+                              'バッグ',
+                              'タオル',
+                              'その他',
+                            ]}
+                            onChange={(v) =>
+                              updateProduct(p.id, (x) => {
+                                x.kind = v;
+                              })
+                            }
+                          />
+                          <Field
+                            label="品番"
+                            value={p.sku}
+                            onChange={(v) =>
+                              updateProduct(p.id, (x) => {
+                                x.sku = v;
+                              })
+                            }
+                          />
+                          <Field
+                            label="管理番号"
+                            value={p.manageNo}
+                            onChange={(v) =>
+                              updateProduct(p.id, (x) => {
+                                x.manageNo = v;
+                              })
+                            }
+                          />
+                          <Field
+                            label="色"
+                            id={`${p.id}-color`}
+                            value={p.color}
+                            onChange={(v) =>
+                              updateProduct(p.id, (x) => {
+                                x.color = v;
+                              })
+                            }
+                            placeholder="例：ネイビー"
+                          />
+                        </div>
+                        <Field
+                          label="素材・混率"
+                          id={`${p.id}-material`}
+                          value={p.material}
+                          onChange={(v) =>
+                            updateProduct(p.id, (x) => {
+                              x.material = v;
+                            })
+                          }
+                          placeholder="例：綿100%、または不明"
+                        />
+                        <div id={`${p.id}-sizes`} tabIndex={-1}>
+                          {p.sizes.map((s) => (
+                            <div className="size-row" key={s.id}>
+                              <Field
+                                label="サイズ"
+                                id={`${s.id}-size`}
+                                value={s.size}
+                                onChange={(v) => {
+                                  if (
+                                    v.trim() &&
+                                    p.sizes.some(
+                                      (r) =>
+                                        r.id !== s.id &&
+                                        r.size.trim().toUpperCase() ===
+                                          v.trim().toUpperCase(),
+                                    )
+                                  ) {
+                                    setNotice(
+                                      '同じサイズは追加できません。既存の行の数量を変更してください。',
+                                    );
+                                    return;
+                                  }
+                                  updateProduct(p.id, (x) => {
+                                    x.sizes.find((r) => r.id === s.id)!.size =
+                                      v;
+                                  });
+                                }}
+                                placeholder="M・L・フリー等"
+                              />
+                              <Field
+                                label="数量（着）"
+                                id={`${s.id}-quantity`}
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={s.quantity}
+                                onChange={(v) =>
+                                  updateProduct(p.id, (x) => {
+                                    x.sizes.find(
+                                      (r) => r.id === s.id,
+                                    )!.quantity = v;
+                                  })
+                                }
+                              />
+                              <button
+                                className="quiet"
+                                aria-label={`${s.size || '未入力'}サイズ行を削除`}
+                                disabled={p.sizes.length === 1}
+                                onClick={() =>
+                                  updateProduct(p.id, (x) => {
+                                    x.sizes = x.sizes.filter(
+                                      (r) => r.id !== s.id,
+                                    );
+                                  })
+                                }
+                              >
+                                <Trash2 size={17} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          className="quiet"
+                          onClick={() =>
+                            updateProduct(p.id, (x) => {
+                              x.sizes.push(newSize());
+                            })
+                          }
+                        >
+                          <Plus size={16} />
+                          サイズを追加
+                        </button>
+                        <p className="sub-total">
+                          この商品の小計　<b>{subtotal(p)}</b> 着
+                        </p>
+                        <div className="copy-box">
+                          <p>
+                            色違いの商品などを作れます。管理番号は引き継ぎ、サイズ・数量は空欄にします。
+                          </p>
+                          <div className="toolbar">
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                change((d) => {
+                                  d.products.push(copyProduct(p, false));
+                                })
+                              }
+                            >
+                              <Copy size={15} />
+                              商品情報だけコピー
+                            </button>
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                change((d) => {
+                                  d.products.push(copyProduct(p, true));
+                                })
+                              }
+                            >
+                              <Copy size={15} />
+                              商品＋刺繍をコピー
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                    <button
+                      id="add-product"
+                      className="secondary"
+                      onClick={() =>
+                        change((d) => {
+                          d.products.push(newProduct());
+                        })
+                      }
+                    >
+                      <Plus size={18} />
+                      別の商品を追加
+                    </button>
+                  </>
+                )}
+                {q.step === 3 && (
+                  <>
+                    <p className="muted">
+                      商品ごとに、刺繍を入れる部位とロゴを指定してください。
+                    </p>
+                    {q.products.map((p, i) => (
+                      <section
+                        className="product-card"
+                        id={`${p.id}-spots`}
+                        tabIndex={-1}
+                        key={p.id}
+                      >
+                        <h3>
+                          商品 {i + 1}　{p.name || '商品未指定'}
+                        </h3>
+                        {p.spots.map((s, j) => (
+                          <article key={s.id} className="review-block">
+                            <div className="heading-row">
+                              <b>刺繍箇所 {j + 1}</b>
+                              {p.spots.length > 1 && (
+                                <button
+                                  className="quiet danger"
+                                  onClick={() =>
+                                    setConfirm({
+                                      message: `刺繍箇所${j + 1}をこの商品から削除します。`,
+                                      run: () =>
+                                        updateProduct(p.id, (x) => {
+                                          x.spots = x.spots.filter(
+                                            (a) => a.id !== s.id,
+                                          );
+                                        }),
+                                    })
+                                  }
+                                >
+                                  <Trash2 size={16} />
+                                  削除
+                                </button>
+                              )}
+                            </div>
+                            <Choice
+                              label="加工部位"
+                              value={s.location}
+                              options={[
+                                '左胸',
+                                '右胸',
+                                '背中',
+                                '左袖',
+                                '右袖',
+                                '正面',
+                                'その他',
+                              ]}
+                              onChange={(v) =>
+                                updateSpot(p.id, s.id, (x) => {
+                                  x.location = v;
+                                })
+                              }
+                            />
+                            {s.location === 'その他' && (
+                              <Field
+                                label="部位の詳細"
+                                id={`${s.id}-other`}
+                                required
+                                value={s.other}
+                                onChange={(v) =>
+                                  updateSpot(p.id, s.id, (x) => {
+                                    x.other = v;
+                                  })
+                                }
+                              />
+                            )}
+                            <div className="filebox">
+                              <Upload size={24} />
+                              <label htmlFor={`${s.id}-file`}>
+                                <b>
+                                  {s.asset ? s.asset.name : 'ロゴ原稿を選択'}
+                                </b>
+                                <span
+                                  className="muted"
+                                  style={{ display: 'block' }}
+                                >
+                                  この画面ではPNG・JPEG・WebP、1ファイル10MBまで
+                                </span>
+                              </label>
+                              <input
+                                id={`${s.id}-file`}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                disabled={!!uploading}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) void upload(p.id, s.id, f);
+                                }}
+                              />
+                              <button
+                                className="quiet"
+                                disabled={!!uploading}
+                                onClick={() => void upload(p.id, s.id)}
+                              >
+                                {uploading === s.id
+                                  ? '原稿を保存中…'
+                                  : '原稿の保存を再試行'}
+                              </button>
+                            </div>
+                            <div className="grid2">
+                              <Field
+                                label="希望横幅（mm）"
+                                id={`${s.id}-width`}
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                required
+                                value={s.width}
+                                onChange={(v) =>
+                                  updateSpot(p.id, s.id, (x) =>
+                                    Object.assign(x, resizeSpot(x, 'width', v)),
+                                  )
+                                }
+                              />
+                              <Field
+                                label="希望高さ（mm）"
+                                id={`${s.id}-height`}
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                required
+                                value={s.height}
+                                onChange={(v) =>
+                                  updateSpot(p.id, s.id, (x) =>
+                                    Object.assign(
+                                      x,
+                                      resizeSpot(x, 'height', v),
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+                            <Check
+                              label="原稿の縦横比を保持する"
+                              checked={s.lock}
+                              onChange={(v) =>
+                                updateSpot(p.id, s.id, (x) => {
+                                  x.lock = v;
+                                  if (v && x.asset && Number(x.width) > 0)
+                                    Object.assign(
+                                      x,
+                                      resizeSpot(x, 'width', x.width),
+                                    );
+                                })
+                              }
+                            />
+                            <LogoPreview spot={s} />
+                            <Choice
+                              label="希望糸色"
+                              value={s.threadMode}
+                              options={['業者に相談', '指定する']}
+                              onChange={(v) =>
+                                updateSpot(p.id, s.id, (x) => {
+                                  x.threadMode = v;
+                                })
+                              }
+                            />
+                            {s.threadMode === '指定する' && (
+                              <ThreadColorPicker
+                                id={`${s.id}-thread`}
+                                value={s.thread}
+                                onChange={(v) =>
+                                  updateSpot(p.id, s.id, (x) => {
+                                    x.thread = v;
+                                  })
+                                }
+                              />
+                            )}
+                            <Choice
+                              label="刺繍型データ"
+                              value={s.pattern}
+                              options={['あり', 'なし', '不明']}
+                              onChange={(v) =>
+                                updateSpot(p.id, s.id, (x) => {
+                                  x.pattern = v;
+                                })
+                              }
+                            />
+                            {s.pattern === 'あり' && (
+                              <Field
+                                label="型データの参照番号・元の依頼"
+                                id={`${s.id}-reference`}
+                                required
+                                value={s.reference}
+                                onChange={(v) =>
+                                  updateSpot(p.id, s.id, (x) => {
+                                    x.reference = v;
+                                  })
+                                }
+                              />
+                            )}
+                            <Notes
+                              label="位置・仕上がりの希望、補足事項"
+                              value={s.notes}
+                              onChange={(v) =>
+                                updateSpot(p.id, s.id, (x) => {
+                                  x.notes = v;
+                                })
+                              }
+                            />
+                          </article>
+                        ))}
+                        <button
+                          className="secondary"
+                          style={{ marginTop: 20 }}
+                          onClick={() =>
+                            updateProduct(p.id, (x) => {
+                              x.spots.push(newSpot());
+                            })
+                          }
+                        >
+                          <Plus size={17} />
+                          刺繍箇所を追加
+                        </button>
+                      </section>
+                    ))}
+                    <div className="callout">
+                      画面の色と実際の刺繍糸の色は異なります。対応素材・寸法・加工可否、必要な入稿形式は業者が確認します。
+                    </div>
+                  </>
+                )}
+                {q.step === 4 && (
+                  <>
+                    <p className="muted">
+                      お客様が商品を受け取りたい日を指定してください。未定の場合は空欄のまま進めます。
+                    </p>
+                    <Field
+                      label="商品受け取り希望日"
+                      id="delivery"
+                      type="date"
+                      value={q.delivery}
+                      onChange={(v) =>
+                        change((d) => {
+                          d.delivery = v;
+                        })
+                      }
+                    />
+                    {q.delivery && (
+                      <div className="callout">
+                        <b>希望日の5日前：{fiveDaysBefore(q.delivery)}</b>
+                        <p style={{ margin: '6px 0 0' }}>
+                          暦日で計算しています。依頼書には両方の日付を記載し、対応可否を確認します。納期を保証するものではありません。
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      className="quiet"
+                      onClick={() =>
+                        change((d) => {
+                          d.delivery = '';
+                        })
+                      }
+                    >
+                      日付を指定しない
+                    </button>
+                    <Notes
+                      label="納期に関する補足"
+                      value={q.deliveryNotes}
+                      onChange={(v) =>
+                        change((d) => {
+                          d.deliveryNotes = v;
+                        })
+                      }
+                    />
+                  </>
+                )}
+                {q.step === 5 && (
+                  <>
+                    <p className="muted">
+                      依頼内容を確認し、履歴に保存すると見積依頼書を作成できます。
+                    </p>
+                    <QuoteReview quote={q} />
+                    <Check
+                      id="checked"
+                      label="入力内容と参考図を確認しました。価格・型代・加工可否・納期は業者の確認が必要で、この保存操作では発注・送信されないことを確認しました。"
+                      checked={q.checked}
+                      onChange={(v) => {
+                        const next = {
+                          ...q,
+                          checked: v,
+                          updatedAt: new Date().toISOString(),
+                        };
+                        install(next);
+                        setSaveState('未保存の変更があります');
+                        if (timer.current) clearTimeout(timer.current);
+                        timer.current = setTimeout(
+                          () => enqueue(next).catch(() => {}),
+                          800,
+                        );
+                      }}
+                    />
+                    <div className="toolbar">
+                      <button
+                        className="primary"
+                        disabled={busy || !!uploading}
+                        onClick={() => void archive()}
+                      >
+                        <Bookmark size={17} />
+                        {busy ? '保存しています…' : '依頼内容を履歴に保存'}
+                      </button>
+                      <button
+                        className="secondary"
+                        onClick={() => downloadData(q)}
+                      >
+                        再編集用データを保存
+                      </button>
+                    </div>
+                    {savedId && (
+                      <div className="callout">
+                        <p>履歴への保存が完了しました。</p>
+                        <a
+                          className="primary"
+                          href={`/report?id=${encodeURIComponent(savedId)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <FileText size={18} />
+                          見積依頼書・PDFを開く
+                        </a>
+                      </div>
+                    )}
+                    <p className="muted" style={{ marginTop: 20 }}>
+                      メール送信先・送信元・CC・認証方法が未設定のため、自動送信は利用できません。
+                    </p>
+                    <button className="secondary" disabled>
+                      メール送信（未設定）
+                    </button>
+                  </>
+                )}
+              </div>
+              <footer className="formfooter">
+                {q.step > 1 ? (
+                  <button className="secondary" onClick={() => go(q.step - 1)}>
+                    <ArrowLeft size={17} />
+                    戻る
+                  </button>
+                ) : (
+                  <span>途中で中断しても、下書きから再開できます</span>
+                )}
+                {q.step < 5 && (
+                  <button
+                    className="primary"
+                    disabled={!!uploading}
+                    onClick={() => {
+                      const missing = validate(q).filter(
+                        (e) => e.step === q.step,
+                      );
+                      if (missing.length) {
+                        setIssues(missing);
+                        setTimeout(
+                          () =>
+                            document.getElementById(missing[0].target)?.focus(),
+                          0,
+                        );
+                      } else go(q.step + 1);
+                    }}
+                  >
+                    次へ：{steps[q.step]}
+                    <ArrowRight size={17} />
+                  </button>
+                )}
+              </footer>
+            </section>
+            <aside>
+              <div className="summary">
+                <Scissors size={28} />
+                <h3>今回の見積もり</h3>
+                <p>ロゴマーク刺繍</p>
+                <hr />
+                <div className="stat">
+                  <span>商品</span>
+                  <b>
+                    {q.products.length} <small>点</small>
+                  </b>
+                </div>
+                <div className="stat">
+                  <span>合計数量</span>
+                  <b>
+                    {total(q) > 0 ? total(q) : '—'}{' '}
+                    <small>{total(q) > 0 ? '着' : '未指定'}</small>
+                  </b>
+                </div>
+                <hr />
+                <p className="muted">
+                  価格・型代・加工可否は、業者による確認後のご案内です。
+                </p>
+              </div>
+              <div className="aside-note">
+                <Save size={18} />
+                <p role="status">{saveState}</p>
+              </div>
+              <div className="aside-note">
+                <Bookmark size={18} />
+                <p>商品・刺繍の入力と原稿を保存し、後から編集できます。</p>
+              </div>
+              <div className="aside-note">
+                <History size={18} />
+                <p>過去の依頼を呼び出して、再注文にも使えます。</p>
+              </div>
+            </aside>
+          </div>
+        )}
+        <p className="trial-note">
+          確認用の試作です。テスト用の情報・ロゴをご利用ください。
+        </p>
+      </main>
+      <AlertDialog
+        open={!!confirm}
+        onOpenChange={(v) => {
+          if (!v) setConfirm(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>内容を確認してください</AlertDialogTitle>
+            <AlertDialogDescription>{confirm?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>戻る</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirm?.run();
+                setConfirm(null);
+              }}
+            >
+              続ける
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
-

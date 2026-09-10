@@ -20,5 +20,8 @@ test('invalid dates rejected and no date creates no confirmation request',()=>{a
 test('aspect ratio locks either dimension and unlock preserves other side',()=>{const s=sample().products[0].spots[0];assert.equal(resizeSpot(s,'width','100').height,'50');assert.equal(resizeSpot(s,'height','20').width,'40');assert.equal(resizeSpot({...s,lock:false},'width','100').height,'30')});
 test('existing pattern requires reference and chosen colors require names',()=>{const q=sample(),s=q.products[0].spots[0];s.pattern='あり';s.threadMode='指定する';assert.ok(validate(q).some(e=>e.target.endsWith('-reference')));assert.ok(validate(q).some(e=>e.target.endsWith('-thread')))});
 export {sample};
+test('customer requirements are company, contact, phone in that order',()=>{const q=newQuote();assert.deepEqual(validate(q).filter(e=>e.step===1).map(e=>e.target),['customer-company','customer-name','customer-phone']);});
+test('email and LINE registration are not required',()=>{const q=sample();delete q.customer.email;assert.deepEqual(validate(q),[]);assert.deepEqual(parseQuote(JSON.parse(JSON.stringify(q))),q);for(const k of ['company','name','phone']){const copy=structuredClone(q);copy.customer[k]=' ';assert.equal(validate(copy).filter(e=>e.step===1).length,1)}});
+test('LINE registration survives draft and reorder',()=>{const q=sample();q.customer.lineRegistration='登録済み';assert.equal(parseQuote(q).customer.lineRegistration,'登録済み');assert.equal(reorder(q,'same').customer.lineRegistration,'登録済み')});
 
 test('all product details may be omitted while embroidery remains required',()=>{const q=sample();const p=newProduct();p.spots=q.products[0].spots;q.products=[p];assert.deepEqual(validate(q),[]);p.sizes[0].size='M';assert.ok(validate(q).some(e=>e.step===2));});

@@ -1,6 +1,10 @@
 // Transcribed from the user's supplied picker screenshot. RGB is a screen sample,
 // not a manufacturer colorimetric measurement. Unseen catalog rows are not invented.
 export const threadColors = [
+ // Preserve the three additional colors already registered in the site.
+ {number:'1005',name:'ピンク',hex:'#b52f67'},
+ {number:'1359',name:'ショッキングピンク',hex:'#9b174f'},
+ {number:'9022',name:'レッド',hex:'#b73527'},
  {number:'9324',name:'ダークレッド',hex:'#8f2525'},
  {number:'1113',name:'オレンジ',hex:'#b95d2c'},
  {number:'1098',name:'マスタードゴールド',hex:'#b88a3c'},

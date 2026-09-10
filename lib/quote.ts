@@ -4,6 +4,8 @@ export type Spot={id:string;location:string;other:string;width:string;height:str
 export type Product={id:string;name:string;kind:string;sku:string;manageNo:string;color:string;previewColor?:string;material:string;sizes:{id:string;size:string;quantity:string}[];spots:Spot[]};
 export type Quote={version:1;id:string;customerId:string;process:'logo-embroidery';sourceId:string|null;customer:{name:string;company:string;email?:string;phone:string;lineRegistration?:string};products:Product[];delivery:string;deliveryNotes:string;checked:boolean;step:number;updatedAt:string};
 export type Issue={step:number;target:string;message:string};
+export const threadInstruction='ロゴの元データをもとに、刺繍屋さんが糸色・糸番号を選定します。';
+export function vendorThreads(q:Quote):Quote{const next=structuredClone(q);for(const p of next.products)for(const s of p.spots){s.threadMode='業者に相談';s.thread='';delete s.threadSelections}return next;}
 export const steps=['お客様情報','商品情報','刺繍情報','必要納期','確認事項'];
 export const sizes=['SS','S','M','L','LL','3L','4L','5L','6L','フリー'];
 export const locations=['左胸ポケット上','左胸縫い目上','右胸ポケット上','右胸縫い目上','左肩','右肩','背面えり下','背面','その他'];
@@ -30,7 +32,7 @@ export function validate(q:Quote):Issue[]{const out:Issue[]=[];const add=(step:n
  p.sizes.forEach(s=>{if(!s.size.trim()&&!s.quantity.trim())return;if(!s.size.trim())add(2,`${s.id}-size`,`${label}：数量を指定した行のサイズを入力してください`);if(!/^\d+$/.test(s.quantity)||Number(s.quantity)<1||!Number.isSafeInteger(Number(s.quantity)))add(2,`${s.id}-quantity`,`${label}：サイズを指定した行の数量は1以上の整数で入力してください`)});
  if(duplicates(p).length)add(2,`${p.id}-sizes`,`${label}：同じサイズが重複しています（${duplicates(p).join('、')}）`);
  if(!p.spots.length)add(3,`${p.id}-spots`,`${label}：刺繍箇所を追加してください`);
- p.spots.forEach((s,j)=>{const title=`${label}・箇所${j+1}`;if(!s.asset)add(3,`${s.id}-file`,`${title}：ロゴ原稿を選択してください`);if(s.location==='その他'&&!s.other.trim())add(3,`${s.id}-other`,`${title}：加工部位を入力してください`);for(const key of ['width','height'] as const)if(!Number.isFinite(Number(s[key]))||Number(s[key])<=0)add(3,`${s.id}-${key}`,`${title}：希望${key==='width'?'横幅':'高さ'}をmmで入力してください`);if(s.threadMode==='指定する'&&!s.thread.trim())add(3,`${s.id}-thread`,`${title}：希望糸色を入力してください`);if(s.pattern==='あり'&&!s.reference.trim())add(3,`${s.id}-reference`,`${title}：型データの参照番号または元依頼を入力してください`)});
+ p.spots.forEach((s,j)=>{const title=`${label}・箇所${j+1}`;if(!s.asset)add(3,`${s.id}-file`,`${title}：ロゴ原稿を選択してください`);if(s.location==='その他'&&!s.other.trim())add(3,`${s.id}-other`,`${title}：加工部位を入力してください`);for(const key of ['width','height'] as const)if(!Number.isFinite(Number(s[key]))||Number(s[key])<=0)add(3,`${s.id}-${key}`,`${title}：希望${key==='width'?'横幅':'高さ'}をmmで入力してください`);if(s.pattern==='あり'&&!s.reference.trim())add(3,`${s.id}-reference`,`${title}：型データの参照番号または元依頼を入力してください`)});
  });if(q.delivery&&!validDate(q.delivery))add(4,'delivery','受け取り希望日を確認してください');if(!q.checked)add(5,'checked','確認事項にチェックしてください');return out;
 }
 // Strict shape validation at the API boundary; drafts may contain empty fields.

@@ -46,3 +46,6 @@ DB変更はDrizzleスキーマと生成マイグレーションで管理。ロ�
 
 日本語フォントは [Noto Sans JP](https://github.com/google/fonts/tree/main/ofl/notosansjp) のwght=400を固定化したものです。SIL Open Font License 1.1（public/fonts/OFL.txt）。元のvariableフォントをfontToolsで静的TrueTypeに変換しました。PDFはpdf-libとfontkitを利用します。
 
+
+## 糸選定の方針変更（最新）
+糸色の自己選択・色見本・自動候補を入力画面から撤去しました。ロゴ原本をもとに刺繍屋さんが糸色・糸番号を選定します。下書きの復元・保存と新規履歴保存時には過去の自己選択値を外し、業者選定へ統一します。既存履歴の保存原本は書き換えませんが、表示・依頼書の選定案内は新方針です。旧色データ型は保存互換性のため残しています。

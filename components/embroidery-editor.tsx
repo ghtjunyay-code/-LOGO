@@ -2,8 +2,7 @@
 import {Upload} from 'lucide-react';
 import {Field,Choice,Notes,LogoPreview} from '@/components/quote-controls';
 import {bodyColor} from '@/lib/body-color';
-import ThreadPicker from '@/components/thread-picker';
-import {locations,newSpot,resizeSpot,type Product,type Spot} from '@/lib/quote';
+import {threadInstruction,locations,newSpot,resizeSpot,type Product,type Spot} from '@/lib/quote';
 export default function EmbroideryEditor({products,uploading,upload,updateProduct,updateSpot,confirm}:{products:Product[];uploading:string;upload:(pid:string,sid:string,file?:File)=>Promise<void>;updateProduct:(id:string,fn:(p:Product)=>void)=>void;updateSpot:(pid:string,sid:string,fn:(s:Spot)=>void)=>void;confirm:(message:string,run:()=>void)=>void}){
  return <>{products.map((p,i)=><section className="product-card" key={p.id} id={`${p.id}-spots`} tabIndex={-1}><h3>商品 {i+1}　{p.name||'商品未指定'}</h3>
  <Choice label="① 刺繍箇所数を選択" value={`${p.spots.length}箇所`} options={Array.from({length:20},(_,i)=>`${i+1}箇所`)} onChange={v=>{const n=parseInt(v);const run=()=>updateProduct(p.id,x=>{x.spots=x.spots.slice(0,n);while(x.spots.length<n)x.spots.push(newSpot())});if(n<p.spots.length)confirm(`${n+1}箇所目以降の刺繍情報を削除します。`,run);else run()}}/>
@@ -14,6 +13,6 @@ export default function EmbroideryEditor({products,uploading,upload,updateProduc
  <p className="muted">もう一方の寸法はロゴの縦横比から自動計算します。</p>
  <Field label={`プレビューのボディ色${p.color?'（商品色：'+p.color+'）':''}`} type="color" value={p.previewColor||bodyColor(p.color)} onChange={v=>updateProduct(p.id,x=>{x.previewColor=v})}/>
  <LogoPreview spot={s} background={p.previewColor||bodyColor(p.color)}/>
- <ThreadPicker spot={s} update={update}/>
+ <div className="callout"><b>糸色・糸番号の選定</b><p style={{margin:0}}>{threadInstruction}</p></div>
  <Choice label="刺繍型データ" value={s.pattern} options={['あり','なし','不明']} onChange={v=>update(x=>{x.pattern=v})}/>{s.pattern==='あり'&&<Field label="型データの参照番号・元の依頼" required id={`${s.id}-reference`} value={s.reference} onChange={v=>update(x=>{x.reference=v})}/>}<Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>update(x=>{x.notes=v})}/></article>})}</section>)}<div className="callout">画面の色と実際の刺繍糸・ボディの色は異なります。寸法・加工可否は刺繍屋さんが確認します。</div></>;
 }

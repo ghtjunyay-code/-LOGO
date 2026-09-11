@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {newQuote,parseQuote,reorder,validate,threadSummary} from '../lib/quote.ts';
+import {suggestedThreads,sourceColorName,threadText} from '../lib/thread-colors.ts';
+test('red blue green are detected separately and transparent background is excluded',()=>{const data=new Uint8ClampedArray([255,0,0,255,0,0,255,255,0,180,0,255,255,255,255,0]);const rows=suggestedThreads(data);assert.equal(rows.length,3);assert.deepEqual(new Set(rows.map(r=>sourceColorName(r.source))),new Set(['赤','青','緑']));assert(rows.every(r=>r.number&&!r.confirmed))});
+test('both modes and sequential confirmations survive save and reorder',()=>{for(const mode of ['業者に相談','指定する']){const q=newQuote(),s=q.products[0].spots[0];s.threadMode=mode;s.threadSelections=[{source:'#ff0000',number:'9022',confirmed:true},{source:'#0000ff',number:'1036',confirmed:false}];s.thread=threadText(s.threadSelections);assert.deepEqual(parseQuote(q),q);assert.deepEqual(reorder(q,'same').products[0].spots[0].threadSelections,s.threadSelections);assert(threadSummary(s).includes('9022'))}});
+test('new request asks for a mode and manual mode needs a color',()=>{const q=newQuote(),s=q.products[0].spots[0];assert(validate(q).some(e=>e.target===s.id+'-thread-mode'));s.threadMode='指定する';assert(validate(q).some(e=>e.target===s.id+'-thread'));s.thread='白（糸番号 1198）';assert(!validate(q).some(e=>e.target===s.id+'-thread'))});

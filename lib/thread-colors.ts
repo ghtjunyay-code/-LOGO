@@ -32,7 +32,9 @@ export const threadColors = [
  {number:'113',name:'ゴールド',hex:'#c6a122'},
  {number:'101',name:'シルバー',hex:'#a5a5a3'},
 ];
-export type ThreadSelection={source:string;number:string};
+export type ThreadSelection={source:string;number:string;confirmed?:boolean};
+export function sourceColorName(hex:string){const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255),max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(max<.22)return '黒';if(d<.1)return min>.86?'白':'グレー';let h=(max===r?(g-b)/d:max===g?2+(b-r)/d:4+(r-g)/d)*60;h=(h+360)%360;if(h<18||h>=345)return max>.75&&min>.35?'ピンク':'赤';if(h<45)return max<.6?'茶色':'オレンジ';if(h<72)return '黄色';if(h<165)return '緑';if(h<205)return '水色';if(h<260)return '青';if(h<290)return '紫';return 'ピンク'}
+export function suggestedThreads(data:Uint8ClampedArray):ThreadSelection[]{const names=new Set<string>();return detectPalette(data).filter(source=>{const name=sourceColorName(source);if(names.has(name))return false;names.add(name);return true}).map(source=>({source,number:nearestThread(source).number,confirmed:false}))}
 export function lab(hex:string){
  const [r,g,b]=[1,3,5].map(i=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});
  const f=(v:number)=>v>.008856?Math.cbrt(v):7.787*v+16/116;
@@ -56,5 +58,5 @@ export function detectPalette(data:Uint8ClampedArray){
 export async function analyzeLogo(url:string){
  const img=await new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('ロゴを読み込めませんでした。再試行してください。'));i.src=url});
  const scale=Math.min(1,320/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('この端末では自動判別できません。色見本から選択してください。');ctx.drawImage(img,0,0,canvas.width,canvas.height);
- return detectPalette(ctx.getImageData(0,0,canvas.width,canvas.height).data).map(source=>({source,number:nearestThread(source).number}));
+ return suggestedThreads(ctx.getImageData(0,0,canvas.width,canvas.height).data);
 }

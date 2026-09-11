@@ -7,13 +7,13 @@ import {bodyColorOptions} from '@/lib/body-color';
 import EmbroideryEditor from '@/components/embroidery-editor';
 import QuoteReview from '@/components/quote-review';
 import {prepareQuote,api,storeLocal,readLocal,retainOriginal,readOriginal,uploadOriginal,downloadData} from '@/lib/client';
-import {vendorThreads,newQuote,newProduct,newSpot,newSize,copyProduct,subtotal,total,steps,validate,reorder,resizeSpot,fiveDaysBefore,uid,type Quote,type Product,type Spot,type Issue} from '@/lib/quote';
+import {newQuote,newProduct,newSpot,newSize,copyProduct,subtotal,total,steps,validate,reorder,resizeSpot,fiveDaysBefore,uid,type Quote,type Product,type Spot,type Issue} from '@/lib/quote';
 type Saved={id:string;data:Quote;revision:number;updated_at:string};
 export default function Home(){
  const [q,setQ]=useState<Quote|null>(null),[view,setView]=useState<'form'|'history'>('form'),[notice,setNotice]=useState(''),[saveState,setSaveState]=useState('読み込み中…'),[issues,setIssues]=useState<Issue[]>([]),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(''),[history,setHistory]=useState<Saved[]>([]),[search,setSearch]=useState(''),[historyLoading,setHistoryLoading]=useState(false),[confirm,setConfirm]=useState<{message:string;run:()=>void}|null>(null),[savedId,setSavedId]=useState('');
  const current=useRef<Quote|null>(null),revisions=useRef<Record<string,number>>({}),queue=useRef<Promise<unknown>>(Promise.resolve()),timer=useRef<ReturnType<typeof setTimeout>|null>(null),ready=useRef(false),heading=useRef<HTMLDivElement>(null),saveFn=useRef<()=>Promise<unknown>>(async()=>{});
- function install(data:Quote){data=vendorThreads(data);current.current=data;setQ(data);storeLocal(data)}
- async function persist(data:Quote){data=vendorThreads(data);setSaveState('下書きを保存中…');const result=await api('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,status:'draft',revision:revisions.current[data.id]||0})});revisions.current[data.id]=result.revision;if(current.current?.id===data.id&&current.current.updatedAt===data.updatedAt)setSaveState('下書き保存済み');return result}
+ function install(data:Quote){current.current=data;setQ(data);storeLocal(data)}
+ async function persist(data:Quote){setSaveState('下書きを保存中…');const result=await api('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,status:'draft',revision:revisions.current[data.id]||0})});revisions.current[data.id]=result.revision;if(current.current?.id===data.id&&current.current.updatedAt===data.updatedAt)setSaveState('下書き保存済み');return result}
  function enqueue(data:Quote){const next=queue.current.catch(()=>{}).then(()=>persist(data));queue.current=next;next.catch((e:Error)=>{setSaveState('未保存の変更があります');setNotice(e.message)});return next}
  function saveDraft(){if(timer.current)clearTimeout(timer.current);if(!current.current)return Promise.resolve();return enqueue(structuredClone(current.current))}
  saveFn.current=saveDraft;

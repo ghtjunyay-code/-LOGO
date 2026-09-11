@@ -13,3 +13,5 @@
 
 .thread-color-line{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;align-items:end}.thread-color-line>.field{margin:0;min-width:0}.thread-color-line>.thread-choice{margin:0;min-height:48px;gap:10px;padding:8px}.thread-color-line .swatch{width:36px;height:36px}.thread-color-line .pick-link{flex-shrink:1}.thread-color-line input{min-width:0}
 @media(max-width:700px){.thread-color-line{gap:8px}.thread-color-line>.thread-choice{display:grid;grid-template-columns:32px minmax(0,1fr);gap:6px}.thread-color-line .swatch{width:32px;height:32px}.thread-color-line .pick-link{grid-column:1/-1;width:auto;font-size:14px}.thread-color-line input{padding:10px 8px}.thread-color-line .thread-choice b{font-size:14px}}
+
+.compact-thread-row{margin-top:12px}.compact-thread-row .thread-color-line{grid-template-columns:minmax(0,1fr) minmax(0,2fr) 32px;gap:8px}.thread-remove{min-height:44px;width:32px;padding:0;font-size:24px;align-self:end}.compact-thread-row .thread-choice{min-height:48px}.compact-thread-row .field{font-size:14px}

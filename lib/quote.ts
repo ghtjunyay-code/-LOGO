@@ -29,8 +29,6 @@ export function validate(q:Quote):Issue[]{const out:Issue[]=[];const add=(step:n
  if(!q.customer.phone.trim())add(1,'customer-phone','電話番号を入力してください');
  if(!q.products.length)add(3,'add-product','刺繍情報を1点以上追加してください');
  q.products.forEach((p,i)=>{const label=p.name||`刺繍対象${i+1}`;
- p.sizes.forEach(s=>{if(!s.size.trim()&&!s.quantity.trim())return;if(!s.size.trim())add(2,`${s.id}-size`,`${label}：数量を指定した行のサイズを入力してください`);if(!/^\d+$/.test(s.quantity)||Number(s.quantity)<1||!Number.isSafeInteger(Number(s.quantity)))add(2,`${s.id}-quantity`,`${label}：サイズを指定した行の数量は1以上の整数で入力してください`)});
- if(duplicates(p).length)add(2,`${p.id}-sizes`,`${label}：同じサイズが重複しています（${duplicates(p).join('、')}）`);
  if(!p.spots.length)add(3,`${p.id}-spots`,`${label}：刺繍箇所を追加してください`);
  p.spots.forEach((s,j)=>{const title=`${label}・箇所${j+1}`;if(!s.asset)add(3,`${s.id}-file`,`${title}：ロゴ原稿を選択してください`);if(s.location==='その他'&&!s.other.trim())add(3,`${s.id}-other`,`${title}：加工部位を入力してください`);for(const key of ['width','height'] as const)if(!Number.isFinite(Number(s[key]))||Number(s[key])<=0)add(3,`${s.id}-${key}`,`${title}：希望${key==='width'?'横幅':'高さ'}をmmで入力してください`);if(s.threadMode==='未選択')add(3,`${s.id}-thread-mode`,`${title}：糸色の選び方を選択してください`);if(s.threadMode==='指定する'&&!s.thread.trim())add(3,`${s.id}-thread`,`${title}：色見本から糸色を選んでください`);s.threadSelections?.forEach((r,k)=>{if(r.colorName!==undefined&&!r.colorName.trim())add(3,`${s.id}-color-name-${k}`,`${title}：色名を入力してください`);if(!r.number)add(3,`${s.id}-color-number-${k}`,`${title}：色見本から糸を選んでください`)});
  });

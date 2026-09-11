@@ -1,4 +1,5 @@
 'use client';
+import LetteringPreview from './lettering-preview';
 import {useId} from 'react';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {Checkbox} from '@/components/ui/checkbox';
@@ -9,6 +10,7 @@ export function Choice({label,value,onChange,options,id,disabled=[]}:{label:stri
 export function Check({label,checked,onChange,id}:{label:string;checked:boolean;onChange:(v:boolean)=>void;id?:string}){const key=useId();return <label className="checkrow" htmlFor={id||key}><Checkbox id={id||key} checked={checked} onCheckedChange={v=>onChange(!!v)}/><span>{label}</span></label>}
 export function Notes({label,value,onChange,id}:{label:string;value:string;onChange:(v:string)=>void;id?:string}){const key=useId();return <label className="field" htmlFor={id||key}>{label}<textarea id={id||key} value={value} onChange={e=>onChange(e.target.value)} maxLength={5000}/></label>}
 export function LogoPreview({spot,background='#ffffff'}:{spot:Spot;background?:string}){
+ if(spot.lettering?.enabled)return <LetteringPreview spot={spot} background={background}/>;
  if(!spot.asset)return null;const ratio=Number(spot.width)>0&&Number(spot.height)>0?Number(spot.width)/Number(spot.height):spot.asset.width/spot.asset.height;
  const w=Math.min(260,180*ratio),h=w/ratio,x=(350-w)/2,y=30+(180-h)/2;
  return <><div className="logo-dimension"><svg viewBox="0 0 400 280" role="img" aria-label={`仕上がりイメージ：横 ${spot.width||'未指定'} mm、縦 ${spot.height||'未指定'} mm`}>

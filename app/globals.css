@@ -17,3 +17,5 @@
 .compact-thread-row{margin-top:12px}.compact-thread-row .thread-color-line{grid-template-columns:minmax(0,1fr) minmax(0,2fr) 32px;gap:8px}.thread-remove{min-height:44px;width:32px;padding:0;font-size:24px;align-self:end}.compact-thread-row .thread-choice{min-height:48px}.compact-thread-row .field{font-size:14px}
 
 .sku-input{display:flex;align-items:center;border:1px solid #becbd8;border-radius:6px;margin-top:7px;background:#fff;overflow:hidden}.sku-input>span{padding-left:13px;font-size:16px;font-weight:400;user-select:none}.sku-input input{border:0;margin-top:0;min-width:0;padding-left:6px;border-radius:0}.sku-input:focus-within{outline:2px solid #2f719f;outline-offset:3px}.sku-input input:focus{outline:none}
+
+.lettering-editor{margin-top:20px;border-top:1px solid #dbe2ea;padding-top:12px}.lettering-item{border-bottom:1px solid #dbe2ea;padding-bottom:16px}.lettering-item .field{margin-top:12px}.lettering-editor>.muted{margin-top:12px}

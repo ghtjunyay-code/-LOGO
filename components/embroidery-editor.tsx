@@ -1,4 +1,5 @@
 'use client';
+import LetteringEditor from './lettering-editor';
 import ThreadPicker from '@/components/thread-picker';
 import {Upload} from 'lucide-react';
 import {Field,Choice,Notes,LogoPreview} from '@/components/quote-controls';
@@ -12,6 +13,7 @@ export default function EmbroideryEditor({products,uploading,upload,updateProduc
  <h4 className="spot-heading">③ 部位・仕上がりサイズを指定</h4><Choice label="刺繍部位" value={s.location} options={locations.includes(s.location)?locations:[s.location,...locations]} onChange={v=>update(x=>{x.location=v})}/>{s.location==='その他'&&<Field label="刺繍部位（自由入力）" required id={`${s.id}-other`} value={s.other} onChange={v=>update(x=>{x.other=v})}/>}
  <div className="grid2"><Choice label="指定方向" value={axis==='width'?'横幅':'縦寸法'} options={['横幅','縦寸法']} onChange={v=>update(x=>{x.axis=v==='横幅'?'width':'height';x.lock=true;const size=x[x.axis];if(Number(size)>0)Object.assign(x,resizeSpot(x,x.axis,String(Math.round(Number(size)))))})}/><Choice label="指定寸法（mm・1mm単位）" id={`${s.id}-${axis}`} value={s[axis]} options={mm} onChange={v=>update(x=>{x.lock=true;Object.assign(x,resizeSpot(x,axis,v))})}/></div>
  <p className="muted">もう一方の寸法はロゴの縦横比から自動計算します。</p>
+ {s.asset&&<LetteringEditor spot={s} update={update}/>}
  <LogoPreview spot={s} background={bodyColor(p.color)}/>
  <ThreadPicker spot={s} update={update}/>
  <Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>update(x=>{x.notes=v})}/></article>})}</section>)}<div className="callout">画面の色と実際の刺繍糸・ボディの色は異なります。寸法・加工可否は刺繍屋さんが確認します。</div></>;

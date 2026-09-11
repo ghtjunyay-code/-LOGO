@@ -6,7 +6,7 @@ import {allowedLetteringFonts,canonicalFont,characterKinds} from '@/lib/letterin
 import {useState} from 'react';
 import {Check,Choice} from './quote-controls';
 import {Dialog,DialogContent,DialogTitle,DialogDescription,DialogClose} from './ui/dialog';
-import {letteringFonts,letteringPositions,newLetteringItem,type Lettering,type LetteringItem} from '@/lib/lettering';
+import {hasLetteringGap,letteringFonts,letteringPositions,newLetteringItem,type Lettering,type LetteringItem} from '@/lib/lettering';
 import {threadColors} from '@/lib/thread-colors';
 import type {Spot} from '@/lib/quote';
 export default function LetteringEditor({spot:s,update,background='#ffffff'}:{background?:string;spot:Spot;update:(fn:(s:Spot)=>void)=>void}){
@@ -24,7 +24,7 @@ export default function LetteringEditor({spot:s,update,background='#ffffff'}:{ba
  {t.role==='個人名'?<div id={`${s.id}-lettering-${t.role}`} tabIndex={-1}><PersonalNamesEditor value={t.personal||newPersonalNames(t.text)} hasCompany={v.items.some(a=>a.role==='会社名')} change={fn=>itemChange(t.role,x=>{x.personal=x.personal||newPersonalNames(x.text);fn(x.personal);if(!v.items.some(a=>a.role==='会社名')){x.personal.place='異なる場所';x.personal.noName=false}x.text=previewName(x.personal);if(!allowedLetteringFonts(personalText(x.personal)).includes(canonicalFont(x.font)))x.font='楷書体'})}/></div>:<> <label className="field" htmlFor={`${s.id}-lettering-${t.role}`}>{t.role}の刺繍文字 <em>必須</em><input id={`${s.id}-lettering-${t.role}`} value={t.text} maxLength={80} aria-required="true" placeholder={t.role==='会社名'?'例：株式会社 山口建設':'例：山田 太郎'} onChange={e=>itemChange(t.role,x=>{x.text=e.target.value;if(!allowedLetteringFonts(x.text).includes(canonicalFont(x.font)))x.font='楷書体'})}/></label></>}
 
  {t.role!=='個人名'&&appearance}
- <div className="grid2">{t.role!=='個人名'&&<Choice label="ロゴに対する配置" value={t.position} options={letteringPositions} onChange={a=>itemChange(t.role,x=>{x.position=a})}/>}<Choice label="間隔" value={`${t.gap} mm`} options={Array.from({length:201},(_,i)=>`${i} mm`)} onChange={a=>itemChange(t.role,x=>{x.gap=parseInt(a)})}/></div>
+ {hasLetteringGap(t,v)&&<div className="grid2">{t.role!=='個人名'&&<Choice label="ロゴに対する配置" value={t.position} options={letteringPositions} onChange={a=>itemChange(t.role,x=>{x.position=a})}/>}<Choice label="間隔" value={`${t.gap} mm`} options={Array.from({length:201},(_,i)=>`${i} mm`)} onChange={a=>itemChange(t.role,x=>{x.gap=parseInt(a)})}/></div>}
  </div>})}
  {['ロゴ',...v.items.map(t=>t.role)].map(target=><fieldset key={target} className="lettering-direction"><legend>{target}の向き</legend><div className="grid2">{(['ポケット・縫い目の角度に合わせる','地面に水平'] as const).map(direction=><button type="button" key={direction} className="direction-option" aria-pressed={(target==='ロゴ'?(v.logoDirection||'地面に水平'):(v.items.find(t=>t.role===target)?.direction||v.direction||'地面に水平'))===direction} onClick={()=>change(x=>{if(target==='ロゴ')x.logoDirection=direction;else{const t=x.items.find(t=>t.role===target);if(t)t.direction=direction}})}><DirectionPreview background={background} spot={s} direction={direction} target={target}/><span>{direction}</span></button>)}</div></fieldset>)}
  <p className="muted">斜めの表示はイメージです。実際の商品に合わせて仕上げます。同じ側に2つ配置した場合、2つ目の間隔は先の文字からの距離です。</p>

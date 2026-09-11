@@ -32,7 +32,8 @@ export const threadColors = [
  {number:'113',name:'ゴールド',hex:'#c6a122'},
  {number:'101',name:'シルバー',hex:'#a5a5a3'},
 ];
-export type ThreadSelection={source:string;number:string;confirmed?:boolean};
+export type ThreadSelection={source:string;number:string;confirmed?:boolean;colorName?:string};
+export function manualThreadText(rows:ThreadSelection[]){return rows.filter(r=>r.number).map(r=>{const c=threadColors.find(c=>c.number===r.number);return `${r.colorName?.trim()||c?.name||'色'} → ${c?.name||''}（糸番号 ${r.number}）`}).join('、')}
 export function sourceColorName(hex:string){const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255),max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(max<.22)return '黒';if(d<.1)return min>.86?'白':'グレー';let h=(max===r?(g-b)/d:max===g?2+(b-r)/d:4+(r-g)/d)*60;h=(h+360)%360;if(h<18||h>=345)return max>.75&&min>.35?'ピンク':'赤';if(h<45)return max<.6?'茶色':'オレンジ';if(h<72)return '黄色';if(h<165)return '緑';if(h<205)return '水色';if(h<260)return '青';if(h<290)return '紫';return 'ピンク'}
 export function suggestedThreads(data:Uint8ClampedArray):ThreadSelection[]{const names=new Set<string>();return detectPalette(data).filter(source=>{const name=sourceColorName(source);if(names.has(name))return false;names.add(name);return true}).map(source=>({source,number:nearestThread(source).number,confirmed:false}))}
 export function lab(hex:string){

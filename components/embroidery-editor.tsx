@@ -14,5 +14,5 @@ export default function EmbroideryEditor({products,uploading,upload,updateProduc
  <p className="muted">もう一方の寸法はロゴの縦横比から自動計算します。</p>
  <LogoPreview spot={s} background={bodyColor(p.color)}/>
  <ThreadPicker spot={s} update={update}/>
- <Choice label="刺繍型データ" value={s.pattern} options={['あり','なし','不明']} onChange={v=>update(x=>{x.pattern=v})}/>{s.pattern==='あり'&&<Field label="型データの参照番号・元の依頼" required id={`${s.id}-reference`} value={s.reference} onChange={v=>update(x=>{x.reference=v})}/>}<Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>update(x=>{x.notes=v})}/></article>})}</section>)}<div className="callout">画面の色と実際の刺繍糸・ボディの色は異なります。寸法・加工可否は刺繍屋さんが確認します。</div></>;
+ <Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>update(x=>{x.notes=v})}/></article>})}</section>)}<div className="callout">画面の色と実際の刺繍糸・ボディの色は異なります。寸法・加工可否は刺繍屋さんが確認します。</div></>;
 }

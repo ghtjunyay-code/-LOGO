@@ -9,7 +9,7 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription,DialogClose} from './
 import {letteringFonts,letteringPositions,newLetteringItem,type Lettering,type LetteringItem} from '@/lib/lettering';
 import {threadColors} from '@/lib/thread-colors';
 import type {Spot} from '@/lib/quote';
-export default function LetteringEditor({spot:s,update}:{spot:Spot;update:(fn:(s:Spot)=>void)=>void}){
+export default function LetteringEditor({spot:s,update,background='#ffffff'}:{background?:string;spot:Spot;update:(fn:(s:Spot)=>void)=>void}){
  const v=s.lettering||{enabled:false,pocketAngle:0,items:[]};const [picker,setPicker]=useState<string|null>(null);
  const change=(fn:(v:Lettering)=>void)=>update(x=>{x.lettering=structuredClone(x.lettering||v);fn(x.lettering)});
  const itemChange=(role:string,fn:(t:LetteringItem)=>void)=>change(x=>{const t=x.items.find(t=>t.role===role);if(t)fn(t)});
@@ -26,7 +26,7 @@ export default function LetteringEditor({spot:s,update}:{spot:Spot;update:(fn:(s
  {t.role!=='個人名'&&appearance}
  <div className="grid2">{t.role!=='個人名'&&<Choice label="ロゴに対する配置" value={t.position} options={letteringPositions} onChange={a=>itemChange(t.role,x=>{x.position=a})}/>}<Choice label="間隔" value={`${t.gap} mm`} options={Array.from({length:201},(_,i)=>`${i} mm`)} onChange={a=>itemChange(t.role,x=>{x.gap=parseInt(a)})}/></div>
  </div>})}
- {['ロゴ',...v.items.map(t=>t.role)].map(target=><fieldset key={target} className="lettering-direction"><legend>{target}の向き</legend><div className="grid2">{(['ポケット・縫い目の角度に合わせる','地面に水平'] as const).map(direction=><button type="button" key={direction} className="direction-option" aria-pressed={(target==='ロゴ'?(v.logoDirection||'地面に水平'):(v.items.find(t=>t.role===target)?.direction||v.direction||'地面に水平'))===direction} onClick={()=>change(x=>{if(target==='ロゴ')x.logoDirection=direction;else{const t=x.items.find(t=>t.role===target);if(t)t.direction=direction}})}><DirectionPreview spot={s} direction={direction} target={target}/><span>{direction}</span></button>)}</div></fieldset>)}
+ {['ロゴ',...v.items.map(t=>t.role)].map(target=><fieldset key={target} className="lettering-direction"><legend>{target}の向き</legend><div className="grid2">{(['ポケット・縫い目の角度に合わせる','地面に水平'] as const).map(direction=><button type="button" key={direction} className="direction-option" aria-pressed={(target==='ロゴ'?(v.logoDirection||'地面に水平'):(v.items.find(t=>t.role===target)?.direction||v.direction||'地面に水平'))===direction} onClick={()=>change(x=>{if(target==='ロゴ')x.logoDirection=direction;else{const t=x.items.find(t=>t.role===target);if(t)t.direction=direction}})}><DirectionPreview background={background} spot={s} direction={direction} target={target}/><span>{direction}</span></button>)}</div></fieldset>)}
  <p className="muted">斜めの表示はイメージです。実際の商品に合わせて仕上げます。同じ側に2つ配置した場合、2つ目の間隔は先の文字からの距離です。</p>
  <Dialog open={picker!==null} onOpenChange={b=>{if(!b)setPicker(null)}}><DialogContent className="thread-dialog" showCloseButton={false}><DialogClose className="thread-close" aria-label="色見本を閉じる">×</DialogClose><DialogTitle>{picker}の糸色</DialogTitle><DialogDescription>色見本から糸色・糸番号を選んでください。</DialogDescription><div className="thread-grid">{threadColors.map(c=><button key={c.number} className="thread-sample" aria-pressed={v.items.find(t=>t.role===picker)?.thread===c.number} onClick={()=>{if(picker)itemChange(picker,x=>{x.thread=c.number});setPicker(null)}}><span className="swatch" style={{background:c.hex}}/><span><b>{c.name}</b><small>糸番号 {c.number}</small></span></button>)}</div></DialogContent></Dialog>
  </>}

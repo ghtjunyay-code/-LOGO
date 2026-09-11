@@ -1,5 +1,6 @@
+import {allLetteringFonts} from './lettering-fonts.ts';
 import {threadColors} from './thread-colors.ts';
-export const letteringFonts=['楷書体','行書体','ゴシック'];
+export const letteringFonts=[...allLetteringFonts,'ゴシック'];
 export const letteringPositions=['上','下','左','右'];
 export type LetteringItem={role:'会社名'|'個人名';text:string;font:string;size:number;thread:string;position:string;gap:number;angle:number};
 export type Lettering={direction?:'ポケット・縫い目の角度に合わせる'|'地面に水平';enabled:boolean;pocketAngle:number;items:LetteringItem[]};

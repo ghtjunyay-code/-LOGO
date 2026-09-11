@@ -1,5 +1,6 @@
 'use client';
 import DirectionPreview from './direction-preview';
+import {allowedLetteringFonts,canonicalFont,characterKinds} from '@/lib/lettering-fonts';
 import {useState} from 'react';
 import {Check,Choice} from './quote-controls';
 import {Dialog,DialogContent,DialogTitle,DialogDescription,DialogClose} from './ui/dialog';
@@ -14,8 +15,8 @@ export default function LetteringEditor({spot:s,update}:{spot:Spot;update:(fn:(s
  <Check label="会社名・個人名を追加する（任意）" checked={v.enabled} onChange={b=>change(x=>{x.enabled=b;if(b&&!x.items.length)x.items=[newLetteringItem('会社名')]})}/>
  {v.enabled&&<><div className="toolbar">{(['会社名','個人名'] as const).map(role=><Check key={role} label={role} checked={v.items.some(t=>t.role===role)} onChange={b=>change(x=>{x.items=b?[...x.items,newLetteringItem(role)]:x.items.filter(t=>t.role!==role)})}/>)}</div>
  {v.items.map(t=>{const c=threadColors.find(c=>c.number===t.thread)!;return <div className="lettering-item" key={t.role}>
- <label className="field" htmlFor={`${s.id}-lettering-${t.role}`}>{t.role}の刺繍文字 <em>必須</em><input id={`${s.id}-lettering-${t.role}`} value={t.text} maxLength={80} aria-required="true" placeholder={t.role==='会社名'?'例：株式会社 山口建設':'例：山田 太郎'} onChange={e=>itemChange(t.role,x=>{x.text=e.target.value})}/></label>
- <div className="grid2"><Choice label="書体" value={t.font} options={letteringFonts} onChange={a=>itemChange(t.role,x=>{x.font=a})}/><Choice label="文字サイズ（高さ）" value={`${t.size} mm`} options={Array.from({length:40},(_,i)=>`${i+11} mm`)} onChange={a=>itemChange(t.role,x=>{x.size=parseInt(a)})}/></div>
+ <label className="field" htmlFor={`${s.id}-lettering-${t.role}`}>{t.role}の刺繍文字 <em>必須</em><input id={`${s.id}-lettering-${t.role}`} value={t.text} maxLength={80} aria-required="true" placeholder={t.role==='会社名'?'例：株式会社 山口建設':'例：山田 太郎'} onChange={e=>itemChange(t.role,x=>{x.text=e.target.value;if(!allowedLetteringFonts(x.text).includes(canonicalFont(x.font)))x.font='楷書体'})}/></label>
+ <p className="muted">文字の種類：{characterKinds(t.text).join('・')||'未入力'}。共通して使える書体から1つ選択します。</p><div className="grid2"><Choice label="書体" value={allowedLetteringFonts(t.text).includes(canonicalFont(t.font))?canonicalFont(t.font):'書体を選び直してください'} options={allowedLetteringFonts(t.text)} onChange={a=>itemChange(t.role,x=>{x.font=a})}/><Choice label="文字サイズ（高さ）" value={`${t.size} mm`} options={Array.from({length:40},(_,i)=>`${i+11} mm`)} onChange={a=>itemChange(t.role,x=>{x.size=parseInt(a)})}/></div>
  <p className="muted">文字の縦寸法は12mmが一般的です。11mm以上でお選びください。</p>
  <button className="thread-choice" onClick={()=>setPicker(t.role)} aria-label={`${t.role}の糸色を選ぶ`}><span className="swatch" style={{background:c.hex}}/><span><b>{c.name}</b><small>糸番号 {c.number}</small></span><span className="pick-link">色見本から選ぶ</span></button>
  <div className="grid2"><Choice label="ロゴに対する配置" value={t.position} options={letteringPositions} onChange={a=>itemChange(t.role,x=>{x.position=a})}/><Choice label="間隔" value={`${t.gap} mm`} options={Array.from({length:201},(_,i)=>`${i} mm`)} onChange={a=>itemChange(t.role,x=>{x.gap=parseInt(a)})}/></div>

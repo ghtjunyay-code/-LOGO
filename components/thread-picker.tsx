@@ -15,8 +15,8 @@ export default function ThreadPicker({spot:s,update}:{spot:Spot;update:(fn:(s:Sp
  {s.threadMode==='業者に相談'&&<p className="muted">指定せずに進む場合は、刺繍屋さんがロゴ原稿を確認して糸色を選びます。</p>}
  {rows.map((r,i)=>{const c=threadColors.find(c=>c.number===r.number);return <div className="review-block" key={i}>
  <div className="heading-row"><b>{i+1}色目</b><button className="quiet" onClick={()=>changeRows(a=>{a.splice(i,1)})} aria-label={`${i+1}色目を削除`}>削除</button></div>
- <Field label="色名（自由入力）" id={`${s.id}-color-name-${i}`} required value={r.colorName||''} onChange={v=>changeRows(a=>{a[i].colorName=v})} placeholder="例：赤、白、黄色、黒"/>
- <button className="thread-choice" id={`${s.id}-color-number-${i}`} disabled={!r.colorName?.trim()} onClick={()=>setEdit(i)}><span className="swatch" style={{background:c?.hex||'#ffffff'}}/><span><b>{c?.name||'糸色を選択'}</b><small>{c?'糸番号 '+c.number:'色名を入力して、色見本から選んでください'}</small></span><span className="pick-link">色見本から選ぶ</span></button></div>})}
+ <div className="thread-color-line"><Field label="色名（自由入力）" id={`${s.id}-color-name-${i}`} required value={r.colorName||''} onChange={v=>changeRows(a=>{a[i].colorName=v})} placeholder="例：赤、白、黄色、黒"/>
+ <button className="thread-choice" id={`${s.id}-color-number-${i}`} disabled={!r.colorName?.trim()} onClick={()=>setEdit(i)}><span className="swatch" style={{background:c?.hex||'#ffffff'}}/><span><b>{c?.name||'糸色を選択'}</b><small>{c?'糸番号 '+c.number:'色名を入力して、色見本から選んでください'}</small></span><span className="pick-link">色見本から選ぶ</span></button></div></div>})}
  <button className="secondary" style={{marginTop:16}} disabled={rows.length>=24} onClick={()=>changeRows(a=>{a.push({source:'#ffffff',number:'',colorName:'',confirmed:false})})}>＋ 色を追加</button>
  <p className="muted" style={{marginTop:12}}>選択した糸：{s.thread||'未選択'}</p>
  <Dialog open={edit!==null} onOpenChange={open=>{if(!open)setEdit(null)}}><DialogContent className="thread-dialog" showCloseButton={false}>

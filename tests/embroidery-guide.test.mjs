@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {guideAngle,parseGuide} from '../lib/embroidery-guide.ts';
+import {letteringLayout,newLetteringItem,letteringSummary} from '../lib/lettering.ts';
+import {newPersonalNames} from '../lib/personal-names.ts';
+import {newQuote,parseQuote,reorder} from '../lib/quote.ts';
+test('all guide slopes and none affect following elements only',()=>{const v={enabled:true,pocketAngle:0,logoDirection:'地面に水平',items:[{...newLetteringItem('会社名'),text:'会社',direction:'ポケット・縫い目の角度に合わせる'}]};for(const [slope,angle] of [['水平',0],['右上がり',-10],['右下がり',10],['分からない',0]]){v.guide={kind:'ポケット',slope};const l=letteringLayout(60,40,v);assert.equal(l.logoRotation,0);assert.equal(l.items[0].rotation,angle)}v.guide={kind:'基準なし',slope:'右下がり'};assert.equal(letteringLayout(60,40,v).items[0].rotation,0);assert.equal(guideAngle(v.guide),0);assert.throws(()=>parseGuide({kind:'bad',slope:'水平'}));});
+test('separate name guide survives save and reorder independently',()=>{const q=newQuote(),p={...newLetteringItem('個人名'),personal:newPersonalNames('山口'),guide:{kind:'縫い目',slope:'右下がり'}};p.personal.place='異なる場所';const v={enabled:true,pocketAngle:0,guide:{kind:'ポケット',slope:'水平'},items:[{...newLetteringItem('会社名'),text:'会社'},p]};q.products[0].spots[0].lettering=v;assert.deepEqual(parseQuote(JSON.parse(JSON.stringify(q))).products[0].spots[0].lettering,v);assert.deepEqual(reorder(q,'same').products[0].spots[0].lettering,v);assert.ok(letteringSummary(v).includes('縫い目／右下がり'));assert.equal(letteringLayout(60,40,v).items.length,1);});

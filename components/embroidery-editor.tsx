@@ -11,8 +11,7 @@ export default function EmbroideryEditor({products,uploading,upload,updateProduc
  <h4 className="spot-heading">③ 部位・お仕上がりサイズを指定</h4><Choice label="刺繍部位" value={s.location} options={locations.includes(s.location)?locations:[s.location,...locations]} onChange={v=>update(x=>{x.location=v})}/>{s.location==='その他'&&<Field label="刺繍部位（自由入力）" required id={`${s.id}-other`} value={s.other} onChange={v=>update(x=>{x.other=v})}/>}
  <div className="grid2"><Choice label="指定方向" value={axis==='width'?'横幅':'縦寸法'} options={['横幅','縦寸法']} onChange={v=>update(x=>{x.axis=v==='横幅'?'width':'height';x.lock=true;const size=x[x.axis];if(Number(size)>0)Object.assign(x,resizeSpot(x,x.axis,String(Math.round(Number(size)))))})}/><Choice label="指定寸法（mm・1mm単位）" id={`${s.id}-${axis}`} value={s[axis]} options={mm} onChange={v=>update(x=>{x.lock=true;Object.assign(x,resizeSpot(x,axis,v))})}/></div>
  <p className="muted">もう一方の寸法はロゴの縦横比から自動計算します。</p>
- <Field label={`プレビューのボディ色${p.color?'（商品色：'+p.color+'）':''}`} type="color" value={p.previewColor||bodyColor(p.color)} onChange={v=>updateProduct(p.id,x=>{x.previewColor=v})}/>
- <LogoPreview spot={s} background={p.previewColor||bodyColor(p.color)}/>
+ <LogoPreview spot={s} background={bodyColor(p.color)}/>
  <div className="callout"><b>糸色・糸番号の選定</b><p style={{margin:0}}>{threadInstruction}</p></div>
  <Choice label="刺繍型データ" value={s.pattern} options={['あり','なし','不明']} onChange={v=>update(x=>{x.pattern=v})}/>{s.pattern==='あり'&&<Field label="型データの参照番号・元の依頼" required id={`${s.id}-reference`} value={s.reference} onChange={v=>update(x=>{x.reference=v})}/>}<Notes label="位置・仕上がりの希望、補足事項" value={s.notes} onChange={v=>update(x=>{x.notes=v})}/></article>})}</section>)}<div className="callout">画面の色と実際の刺繍糸・ボディの色は異なります。寸法・加工可否は刺繍屋さんが確認します。</div></>;
 }

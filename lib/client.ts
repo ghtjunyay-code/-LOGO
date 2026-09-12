@@ -19,4 +19,4 @@ export function prepareAsset(asset:Asset,original?:Blob):Promise<Asset>{
  return {...asset,preview:{id:preview.id,width:result.width,height:result.height}};
  })();preparedAssets.set(asset.id,promise);promise.catch(()=>preparedAssets.delete(asset.id));return promise;
 }
-export async function prepareQuote(input:Quote):Promise<Quote>{const q=structuredClone(input);for(const p of q.products)for(const s of p.spots){if(!s.asset||s.asset.preview)continue;s.asset=await prepareAsset(s.asset);q.checked=false;const axis=s.axis||'width';if(Number(s[axis])>0){s.lock=true;Object.assign(s,resizeSpot(s,axis,s[axis]))}}return q}
+export async function prepareQuote(input:Quote):Promise<Quote>{const q=structuredClone(input);for(const p of q.products)for(const s of p.spots){if(s.lettering?.noLogo||!s.asset||s.asset.preview)continue;s.asset=await prepareAsset(s.asset);q.checked=false;const axis=s.axis||'width';if(Number(s[axis])>0){s.lock=true;Object.assign(s,resizeSpot(s,axis,s[axis]))}}return q}
